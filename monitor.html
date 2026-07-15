@@ -1,0 +1,2275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>股票纪律台</title>
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --panel: #ffffff;
+      --line: #d9dee8;
+      --text: #162033;
+      --muted: #687386;
+      --green: #12805c;
+      --red: #c7352f;
+      --orange: #b86400;
+      --blue: #2459c6;
+      --shadow: 0 8px 22px rgba(31, 45, 61, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      font-size: 14px;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(18, 28, 42, 0.96);
+      color: #f8fafc;
+      border-bottom: 1px solid #253246;
+      backdrop-filter: blur(10px);
+    }
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 16px 20px; }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    .sub { margin-top: 4px; color: #aeb8c8; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    button, .link-button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 9px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      line-height: 1;
+    }
+    header button { border-color: #344155; background: #1f2c3f; color: #f8fafc; }
+    button.primary { background: var(--blue); color: white; border-color: var(--blue); }
+    button:disabled { opacity: .55; cursor: wait; }
+    button.enabled { background: #0f766e; color: #fff; border-color: #0f766e; }
+    main { max-width: 1440px; margin: 0 auto; padding: 16px 20px 28px; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+    .metric .label { color: var(--muted); font-size: 12px; }
+    .metric .value { margin-top: 7px; font-size: 22px; font-weight: 700; }
+    .metric .subvalue {
+      margin-top: 7px;
+      padding-top: 7px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .metric .subvalue strong { margin-left: 4px; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(760px, 1fr) 380px;
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+    }
+    .panel-head h2 { margin: 0; font-size: 16px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+    th, td {
+      padding: 9px 9px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: #fafbfe;
+      font-size: 12px;
+    }
+    td:first-child, th:first-child,
+    td:nth-child(2), th:nth-child(2) { text-align: left; }
+    tr { cursor: pointer; }
+    tr:hover { background: #f7f9ff; }
+    tr.selected { background: #edf3ff; box-shadow: inset 3px 0 0 var(--blue); }
+    tr.alerting { box-shadow: inset 3px 0 0 var(--red); }
+    tr.selected.alerting { box-shadow: inset 3px 0 0 var(--red); background: #fff3f1; }
+    .stock-name { font-weight: 700; }
+    .code { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .up { color: var(--red); }
+    .down { color: var(--green); }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: var(--muted);
+    }
+    .badge.watch { color: var(--orange); background: #fff7ed; border-color: #fed7aa; }
+    .badge.strong, .badge.risk { color: var(--red); background: #fff1f0; border-color: #ffc9c4; }
+    .badge.normal { color: var(--green); background: #eefaf4; border-color: #c6ead8; }
+    .badge.pending { color: var(--muted); background: #f1f5f9; border-color: #dbe3ef; }
+    .detail { padding: 16px; }
+    .detail h3 { margin: 0 0 6px; font-size: 20px; }
+    .detail .category { color: var(--muted); margin-bottom: 12px; }
+    .section { margin-top: 16px; }
+    .section h4 { margin: 0 0 8px; font-size: 14px; }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    li { margin: 5px 0; }
+    .kv {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 8px 10px;
+      color: var(--muted);
+    }
+    .kv strong { color: var(--text); font-weight: 600; }
+    .finance-table th, .finance-table td { text-align: right; font-size: 12px; }
+    .finance-table th:first-child, .finance-table td:first-child { text-align: left; }
+    .watch-table { min-width: 1100px; }
+    .watch-table th:nth-child(1) { width: 130px; }
+    .watch-table th:nth-child(2) { width: 150px; }
+    .watch-table th:nth-child(3),
+    .watch-table th:nth-child(4),
+    .watch-table th:nth-child(5),
+    .watch-table th:nth-child(6),
+    .watch-table th:nth-child(7),
+    .watch-table th:nth-child(8) { width: 84px; }
+    .watch-table th:nth-child(9) { width: 150px; }
+    .watch-table th:nth-child(10) { width: 112px; }
+    .watch-table td:nth-child(2) {
+      white-space: normal;
+      min-width: 140px;
+      line-height: 1.35;
+    }
+    .watch-table td:nth-child(9) {
+      min-width: 140px;
+      white-space: normal;
+      line-height: 1.35;
+    }
+    .discipline-grid {
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .discipline-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+    }
+    .discipline-card h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .portfolio-discipline {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(360px, 2fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .rule-summary {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fbfcff;
+    }
+    .rule-summary h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .risk-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 8px;
+    }
+    .risk-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #fff;
+      line-height: 1.45;
+    }
+    .risk-item.warn {
+      border-color: #fed7aa;
+      background: #fff7ed;
+      color: #7c3f00;
+    }
+    .risk-item.danger {
+      border-color: #ffc9c4;
+      background: #fff1f0;
+      color: #8c1d18;
+    }
+    .danger-text { color: #8c1d18; }
+    .mini-table tr.warn td {
+      background: #fff7ed;
+      color: #7c3f00;
+    }
+    .mini-table tr.danger td {
+      background: #fff1f0;
+      color: #8c1d18;
+    }
+    .limit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .mini-table {
+      width: 100%;
+      min-width: 680px;
+      font-size: 12px;
+    }
+    .mini-table td, .mini-table th {
+      white-space: normal;
+      line-height: 1.35;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea { min-height: 82px; resize: vertical; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(90px, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    .form-grid .wide { grid-column: span 2; }
+    .trade-list {
+      max-height: 360px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding-bottom: 2px;
+    }
+    .trade-pnl-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .trade-pnl-item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fbfcff;
+    }
+    .trade-pnl-item span { display: block; color: var(--muted); font-size: 12px; }
+    .trade-pnl-item strong { display: block; margin-top: 5px; font-size: 16px; }
+    .trade-pnl-note {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .trade-list table { min-width: 1260px; }
+    .trade-table th:nth-child(1) { width: 110px; }
+    .trade-table th:nth-child(2) { width: 130px; }
+    .trade-table th:nth-child(3) { width: 70px; }
+    .trade-table th:nth-child(4) { width: 86px; }
+    .trade-table th:nth-child(5) { width: 76px; }
+    .trade-table th:nth-child(6) { width: 140px; }
+    .trade-table th:nth-child(7) { width: 310px; }
+    .trade-table th:nth-child(8) { width: 320px; }
+    .trade-table td:nth-child(7),
+    .trade-table td:nth-child(8) {
+      white-space: normal;
+      text-align: left;
+      line-height: 1.45;
+    }
+    .trade-table td:nth-child(2) { text-align: left; }
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: var(--blue);
+      font-size: 12px;
+      border: 1px solid #d6e3ff;
+    }
+    .notice {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #fff7ed;
+      color: #7c3f00;
+      border: 1px solid #fed7aa;
+      line-height: 1.5;
+    }
+    .chart-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+    .segmented button {
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      padding: 8px 11px;
+    }
+    .segmented button:last-child { border-right: 0; }
+    .segmented button.active {
+      background: var(--blue);
+      color: #fff;
+    }
+    .zoom-tools {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .zoom-tools button {
+      min-width: 34px;
+      padding: 8px 9px;
+    }
+    .chart-box {
+      padding: 10px 12px 12px;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(420px, .85fr);
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: start;
+    }
+    .chart-grid .panel { min-width: 0; }
+    .chart-canvas {
+      width: 100%;
+      height: 460px;
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      cursor: grab;
+      touch-action: none;
+    }
+    .chart-canvas.dragging { cursor: grabbing; }
+    .lithium-chart-panel .panel-head {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .reference-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .reference-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .reference-legend i {
+      width: 16px;
+      height: 2px;
+      display: inline-block;
+      background: currentColor;
+    }
+    .reference-legend .risk { color: var(--red); }
+    .reference-legend .watch { color: var(--orange); }
+    .reference-legend .stable { color: var(--blue); }
+    .chart-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .config-box {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+    .hidden { display: none; }
+    .main-chart { min-width: 0; }
+    .toast-stack {
+      position: fixed;
+      right: 18px;
+      top: 96px;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: min(380px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background: #fff;
+      border: 1px solid #ffc9c4;
+      border-left: 4px solid var(--red);
+      border-radius: 6px;
+      box-shadow: 0 16px 36px rgba(31, 45, 61, 0.18);
+      padding: 12px;
+      animation: slideIn .18s ease-out;
+    }
+    .toast.watch {
+      border-color: #fed7aa;
+      border-left-color: var(--orange);
+    }
+    .toast-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      font-weight: 700;
+    }
+    .toast-body {
+      margin-top: 7px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .toast-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .toast-actions button { padding: 7px 9px; }
+    .toast-close {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @media (max-width: 1080px) {
+      .grid, .summary, .top, .chart-grid, .discipline-grid, .form-grid, .portfolio-discipline, .limit-grid { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
+      .panel.table-panel { overflow-x: auto; }
+      .form-grid .wide { grid-column: span 1; }
+      table { min-width: 860px; }
+    }
+    @media (max-width: 640px) {
+      main { padding-left: 10px; padding-right: 10px; }
+      .chart-canvas { height: 360px; }
+      .panel-head { align-items: flex-start; flex-wrap: wrap; }
+      .trade-pnl-summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div>
+        <h1>股票纪律台</h1>
+        <div class="sub" id="status">正在加载行情...</div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="refreshBtn">刷新</button>
+        <button id="enableAlertBtn">开启提醒</button>
+        <button id="soundBtn">声音开</button>
+        <button id="toggleAutoBtn">暂停自动刷新</button>
+        <button id="configBtn">编辑配置</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary">
+      <div class="metric">
+        <div class="label">总资产</div>
+        <div class="value" id="totalAssets">--</div>
+      </div>
+      <div class="metric">
+        <div class="label" id="dayPnlLabel">今日盈亏（估）</div>
+        <div class="value" id="dayPnl">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">持仓收益（未实现）</div>
+        <div class="value" id="holdingPnl">--</div>
+        <div class="subvalue">已实现（已记录）<strong id="realizedPnl">--</strong></div>
+      </div>
+      <div class="metric">
+        <div class="label">持仓市值</div>
+        <div class="value" id="marketValue">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">可用资金</div>
+        <div class="value" id="availableCash">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">总仓位</div>
+        <div class="value" id="positionRatio">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">碳酸锂连续</div>
+        <div class="value" id="lithium">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">触发复核</div>
+        <div class="value" id="alerts">--</div>
+      </div>
+    </section>
+
+    <div class="chart-grid">
+      <section class="panel main-chart">
+        <div class="panel-head">
+          <h2 id="chartTitle">走势图</h2>
+          <div class="chart-toolbar">
+            <div class="segmented">
+              <button data-chart-type="intraday">分时</button>
+              <button data-chart-type="daily" class="active">日K</button>
+              <button data-chart-type="weekly">周K</button>
+              <button data-chart-type="monthly">月K</button>
+            </div>
+            <div class="zoom-tools" aria-label="缩放工具">
+              <button id="zoomOutBtn" title="缩小K线">-</button>
+              <button id="zoomInBtn" title="放大K线">+</button>
+              <button id="resetZoomBtn" title="复位K线">复位</button>
+            </div>
+            <button id="reloadChartBtn">刷新图表</button>
+          </div>
+        </div>
+        <div class="chart-box">
+          <canvas id="priceChart" class="chart-canvas"></canvas>
+          <div class="chart-meta">
+            <span id="chartStatus">请选择股票。</span>
+            <span>滚轮缩放，拖拽平移，双击复位；红涨绿跌。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel lithium-chart-panel">
+        <div class="panel-head">
+          <h2 id="lithiumChartTitle">碳酸锂连续 日K线</h2>
+          <div class="chart-toolbar">
+            <div class="segmented">
+              <button data-lithium-chart-type="minute1">1分</button>
+              <button data-lithium-chart-type="minute5">5分</button>
+              <button data-lithium-chart-type="minute15">15分</button>
+              <button data-lithium-chart-type="minute30">30分</button>
+              <button data-lithium-chart-type="minute60">60分</button>
+            </div>
+            <div class="segmented">
+              <button data-lithium-chart-type="daily" class="active">日K</button>
+              <button data-lithium-chart-type="weekly">周K</button>
+              <button data-lithium-chart-type="monthly">月K</button>
+            </div>
+            <div class="zoom-tools" aria-label="碳酸锂图缩放工具">
+              <button id="lithiumZoomOutBtn" title="缩小碳酸锂K线">-</button>
+              <button id="lithiumZoomInBtn" title="放大碳酸锂K线">+</button>
+              <button id="lithiumResetZoomBtn" title="复位碳酸锂K线">复位</button>
+            </div>
+            <button id="reloadLithiumChartBtn">刷新</button>
+          </div>
+        </div>
+        <div class="chart-box">
+          <canvas id="lithiumChart" class="chart-canvas"></canvas>
+          <div class="chart-meta">
+            <span id="lithiumChartStatus">正在加载碳酸锂走势...</span>
+            <span class="reference-legend">
+              <span class="risk"><i></i>15万风险</span>
+              <span class="watch"><i></i>15.5万观察</span>
+              <span class="stable"><i></i>16万企稳</span>
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="grid">
+      <div class="panel table-panel">
+        <div class="panel-head">
+          <h2>实时监测</h2>
+          <span class="hint">股票行情：东方财富；碳酸锂：新浪期货；财务：东方财富F10</span>
+        </div>
+        <table class="watch-table">
+          <thead>
+            <tr>
+              <th style="width: 132px;">股票</th>
+              <th style="width: 110px;">分类</th>
+              <th>现价</th>
+              <th>涨跌</th>
+              <th>复核线</th>
+              <th>强线</th>
+              <th>持仓</th>
+              <th>成本</th>
+              <th>盈亏</th>
+              <th style="width: 112px;">状态</th>
+            </tr>
+          </thead>
+          <tbody id="stockRows"></tbody>
+        </table>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>复核详情</h2>
+          <button id="financeBtn">查看财报</button>
+        </div>
+        <div class="detail" id="detail">请选择一只股票。</div>
+      </aside>
+    </section>
+
+    <section class="panel section" id="disciplinePanel">
+      <div class="panel-head">
+        <h2>投资纪律台</h2>
+        <div class="actions">
+          <button id="savePlanBtn">保存当前规则</button>
+          <button id="addTradeBtn" class="primary">新增交易记录</button>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="portfolio-discipline">
+          <div class="rule-summary">
+            <h3>组合仓位纪律</h3>
+            <div id="portfolioSummary">正在加载仓位纪律...</div>
+          </div>
+          <div class="rule-summary">
+            <h3>分类暴露</h3>
+            <div style="overflow:auto;">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>分类</th>
+                    <th>当前账户</th>
+                    <th>20万口径</th>
+                    <th>上限</th>
+                    <th>纪律</th>
+                  </tr>
+                </thead>
+                <tbody id="categoryExposureRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="discipline-grid">
+          <div class="discipline-card">
+            <h3 id="planTitle">当前股票规则</h3>
+            <div class="field">
+              <label>持仓角色</label>
+              <input id="planRole" />
+            </div>
+            <div class="limit-grid">
+              <div class="field">
+                <label>当前账户单票上限 %</label>
+                <input id="planMaxAccountPct" type="number" step="0.1" />
+              </div>
+              <div class="field">
+                <label>20万总资金单票上限 %</label>
+                <input id="planMaxTotalPct" type="number" step="0.1" />
+              </div>
+            </div>
+            <div class="field">
+              <label>仓位纪律</label>
+              <textarea id="planPositionRule"></textarea>
+            </div>
+            <div class="field">
+              <label>买入理由</label>
+              <textarea id="planBuyReason"></textarea>
+            </div>
+            <div class="field">
+              <label>允许加仓条件，每行一条</label>
+              <textarea id="planAddRules"></textarea>
+            </div>
+            <div class="field">
+              <label>卖出/减仓纪律，每行一条</label>
+              <textarea id="planSellRules"></textarea>
+            </div>
+            <div class="field">
+              <label>禁止买入条件，每行一条</label>
+              <textarea id="planDoNotBuyRules"></textarea>
+            </div>
+          </div>
+          <div class="discipline-card">
+            <h3>纪律判断</h3>
+            <div id="disciplineDecision">请选择股票。</div>
+            <div class="section">
+              <h4>新增交易记录</h4>
+              <div class="form-grid">
+                <div class="field">
+                  <label>日期</label>
+                  <input id="tradeDate" />
+                </div>
+                <div class="field">
+                  <label>股票</label>
+                  <select id="tradeCode"></select>
+                </div>
+                <div class="field">
+                  <label>方向</label>
+                  <select id="tradeAction">
+                    <option>买入</option>
+                    <option>卖出</option>
+                    <option>观察</option>
+                    <option>复核</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>价格</label>
+                  <input id="tradePrice" type="number" step="0.001" />
+                </div>
+                <div class="field">
+                  <label>数量</label>
+                  <input id="tradeQty" type="number" step="100" />
+                </div>
+                <div class="field">
+                  <label>券商已实现盈亏（可选）</label>
+                  <input id="tradeRealizedPnl" type="number" step="0.01" placeholder="卖出后填写" />
+                </div>
+                <div class="field wide">
+                  <label>理由</label>
+                  <input id="tradeReason" />
+                </div>
+                <div class="field wide">
+                  <label>备注</label>
+                  <input id="tradeNote" />
+                </div>
+              </div>
+            </div>
+            <div class="section">
+              <h4>交易记录</h4>
+              <div class="trade-pnl-summary" id="tradePnlSummary"></div>
+              <div class="trade-list">
+                <table class="trade-table">
+                  <thead>
+                    <tr>
+                      <th>日期</th><th>股票</th><th>方向</th><th>价格</th><th>数量</th><th>已实现盈亏</th><th>理由</th><th>备注</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tradeRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="notice">这里记录的是你的交易纪律和复盘依据，不替代行情软件，也不构成买卖建议。</div>
+      </div>
+    </section>
+
+    <section class="panel section hidden" id="financePanel">
+      <div class="panel-head">
+        <h2 id="financeTitle">财报摘要</h2>
+        <a class="link-button" id="financeLink" target="_blank" rel="noreferrer">打开东方财富F10</a>
+      </div>
+      <div class="detail" id="financeContent">未加载。</div>
+    </section>
+
+    <section class="panel section hidden" id="configPanel">
+      <div class="panel-head">
+        <h2>配置</h2>
+        <div class="actions">
+          <button id="saveConfigBtn">保存配置</button>
+          <button id="cancelConfigBtn">关闭</button>
+        </div>
+      </div>
+      <div class="detail">
+        <textarea class="config-box" id="configText"></textarea>
+        <div class="notice">修改持仓、成本或阈值后保存。JSON格式错误会被拒绝。</div>
+      </div>
+    </section>
+  </main>
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    let snapshot = null;
+    let selectedCode = /^\d{6}$/.test(location.hash.slice(1)) ? location.hash.slice(1) : null;
+    let autoRefresh = true;
+    let timer = null;
+    let chartType = "daily";
+    let chartData = null;
+    let chartViews = {};
+    let chartDrag = null;
+    let lithiumChartType = "daily";
+    let lithiumChartData = null;
+    let lithiumChartViews = {};
+    let lithiumChartDrag = null;
+    let lithiumChartRequestId = 0;
+    let journalData = null;
+    let audioContext = null;
+    let alertsArmed = localStorage.getItem("stockAlertsArmed") === "1";
+    let soundEnabled = localStorage.getItem("stockAlertSound") !== "off";
+    let alertMemory = loadAlertMemory();
+
+    const $ = (id) => document.getElementById(id);
+    const fmt = (n, digits = 2) => n === null || n === undefined || Number.isNaN(Number(n)) ? "--" : Number(n).toFixed(digits);
+    const money = (n) => n === null || n === undefined ? "--" : Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+    const signedMoney = (n) => n === null || n === undefined || Number.isNaN(Number(n)) ? "--" : `${Number(n) > 0 ? "+" : ""}${money(n)}`;
+    const pctClass = (n) => n > 0 ? "up" : n < 0 ? "down" : "";
+    const alertLevels = { normal: 0, pending: 0, unknown: 0, watch: 1, risk: 2, strong: 3 };
+    const alertLevelNames = { watch: "进入复核区", risk: "风险提示", strong: "强复核区" };
+
+    function loadAlertMemory() {
+      try {
+        const value = JSON.parse(localStorage.getItem("stockAlertMemory") || "{}");
+        return value && typeof value === "object" ? value : {};
+      } catch {
+        localStorage.removeItem("stockAlertMemory");
+        return {};
+      }
+    }
+
+    function renderSnapshot(data) {
+      snapshot = data;
+      $("status").textContent = `更新时间：${data.as_of}，自动刷新 ${data.refresh_seconds || 15} 秒`;
+      const account = data.account || {};
+      $("totalAssets").textContent = money(account.total_assets ?? account.broker_total_assets);
+      $("dayPnl").innerHTML = `<span class="${pctClass(account.day_pnl)}">${money(account.day_pnl)}</span>`;
+      $("dayPnlLabel").textContent = account.day_pnl_method === "broker_snapshot" ? "今日盈亏（截图）" : "今日盈亏（估）";
+      $("dayPnlLabel").title = account.day_pnl_note || "";
+      const holdingPnlValue = data.positions.pnl ?? account.broker_holding_pnl;
+      $("holdingPnl").innerHTML = `<span class="${pctClass(holdingPnlValue)}">${money(holdingPnlValue)} / ${fmt(data.positions.pnl_pct)}%</span>`;
+      $("marketValue").textContent = money(data.positions.market_value ?? account.market_value);
+      $("availableCash").textContent = money(account.available_cash);
+      $("positionRatio").textContent = account.position_ratio === null || account.position_ratio === undefined ? "--" : `${fmt(account.position_ratio)}%`;
+      const lc = data.lithium || {};
+      $("lithium").innerHTML = lc.price ? `<span class="${lc.price <= 150000 ? "down" : ""}">${money(lc.price)}</span>` : "--";
+      const triggered = data.stocks.filter(s => ["watch", "strong", "risk"].includes(s.review.level));
+      $("alerts").innerHTML = triggered.length ? `<span class="up">${triggered.length}</span>` : "0";
+
+      if (!selectedCode && data.stocks.length) selectedCode = data.stocks[0].code;
+      if (selectedCode && !data.stocks.some(s => s.code === selectedCode)) selectedCode = data.stocks[0]?.code || null;
+      const body = $("stockRows");
+      body.innerHTML = data.stocks.map(s => {
+        const chg = s.change_pct;
+        const rv = s.review || {};
+        const rowClasses = [
+          s.code === selectedCode ? "selected" : "",
+          ["watch", "strong", "risk"].includes(rv.level) ? "alerting" : "",
+        ].filter(Boolean).join(" ");
+        return `
+          <tr data-code="${s.code}" class="${rowClasses}">
+            <td><div class="stock-name">${s.name}</div><div class="code">${s.code}</div></td>
+            <td>${s.category || "--"}</td>
+            <td>${fmt(s.price)}</td>
+            <td class="${pctClass(chg)}">${fmt(chg)}%</td>
+            <td>${fmt(rv.trigger)}</td>
+            <td>${fmt(rv.strong)}</td>
+            <td>${s.holding_qty || 0}</td>
+            <td>${fmt(s.holding_cost)}</td>
+            <td class="${pctClass(s.pnl)}">${s.pnl === null ? "--" : `${money(s.pnl)} / ${fmt(s.pnl_pct)}%`}</td>
+            <td><span class="badge ${rv.level}">${rv.title}</span></td>
+          </tr>
+        `;
+      }).join("");
+      [...body.querySelectorAll("tr")].forEach(tr => {
+        tr.addEventListener("click", () => {
+          selectStock(tr.dataset.code);
+        });
+      });
+      renderDetail();
+      renderTradeCodeOptions();
+      renderDiscipline();
+      loadChart();
+      loadLithiumChart();
+      processAlerts(data.stocks);
+    }
+
+    function selectStock(code) {
+      selectedCode = code;
+      if (history.replaceState) history.replaceState(null, "", `#${code}`);
+      document.querySelectorAll("#stockRows tr").forEach(row => {
+        row.classList.toggle("selected", row.dataset.code === selectedCode);
+      });
+      renderDetail();
+      renderDiscipline();
+      loadChart();
+    }
+
+    function renderDetail() {
+      if (!snapshot) return;
+      const s = snapshot.stocks.find(x => x.code === selectedCode);
+      if (!s) return;
+      const rv = s.review || {};
+      $("detail").innerHTML = `
+        <h3>${s.name} <span class="code">${s.code}</span></h3>
+        <div class="category">${s.category || ""}</div>
+        <div class="kv">
+          <span>现价</span><strong>${fmt(s.price)}</strong>
+          <span>涨跌</span><strong class="${pctClass(s.change_pct)}">${fmt(s.change_pct)}%</strong>
+          <span>区间</span><strong>${fmt(s.low)} - ${fmt(s.high)}</strong>
+          <span>时间</span><strong>${s.quote_time || "--"}</strong>
+          <span>来源</span><strong>${s.source || "--"}</strong>
+          <span>复核状态</span><strong>${rv.title || "--"}</strong>
+        </div>
+        <div class="section">
+          <h4>当前判断</h4>
+          <ul>${(rv.messages || []).map(m => `<li>${m}</li>`).join("")}</ul>
+        </div>
+        <div class="section">
+          <h4>投资逻辑</h4>
+          <div>${s.thesis || "--"}</div>
+        </div>
+        <div class="section">
+          <h4>复核清单</h4>
+          <ul>${(s.review_points || []).map(m => `<li>${m}</li>`).join("")}</ul>
+        </div>
+        <div class="notice">复核触发只表示进入重新评估区间，不构成买入建议。交易前仍要检查最新财报、行业价格和市场环境。</div>
+      `;
+      $("financeTitle").textContent = `${s.name} 财报摘要`;
+      $("financeLink").href = s.finance_url;
+      $("chartTitle").textContent = `${s.name} ${chartTypeLabel(chartType)}`;
+    }
+
+    function linesToText(value) {
+      return Array.isArray(value) ? value.join("\n") : (value || "");
+    }
+
+    function textToLines(value) {
+      return String(value || "")
+        .split("\n")
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+
+    function ensureJournalPlan(code) {
+      if (!journalData) return null;
+      journalData.plans = journalData.plans || {};
+      if (!journalData.plans[code]) {
+        const stock = snapshot?.stocks?.find(s => s.code === code);
+        const categoryLimit = getCategoryLimit(stock?.category);
+        journalData.plans[code] = {
+          role: stock?.category || "观察仓",
+          max_account_pct: categoryLimit.max_account_pct || 10,
+          max_total_capital_pct: categoryLimit.max_total_capital_pct || 3,
+          position_rule: "待填写仓位纪律。",
+          buy_reason: "待填写买入理由。",
+          add_rules: [],
+          sell_rules: [],
+          do_not_buy_rules: [],
+        };
+      }
+      return journalData.plans[code];
+    }
+
+    function portfolioRules() {
+      return journalData?.portfolio_rules || {};
+    }
+
+    function declaredTotalCapital() {
+      return Number(portfolioRules().declared_total_capital || 0);
+    }
+
+    function getCategoryLimit(category) {
+      return portfolioRules().category_limits?.[category || ""] || {};
+    }
+
+    function pctOf(value, base) {
+      return base ? Number(value || 0) / Number(base) * 100 : null;
+    }
+
+    function riskClass(current, limit) {
+      if (current === null || limit === null || limit === undefined || !Number.isFinite(Number(limit))) return "";
+      if (current > Number(limit)) return "danger";
+      if (current > Number(limit) * 0.8) return "warn";
+      return "";
+    }
+
+    function renderTradeCodeOptions() {
+      const select = $("tradeCode");
+      if (!select || !snapshot) return;
+      const current = select.value || selectedCode;
+      select.innerHTML = snapshot.stocks.map(s => `<option value="${s.code}">${s.name} ${s.code}</option>`).join("");
+      select.value = snapshot.stocks.some(s => s.code === current) ? current : selectedCode;
+    }
+
+    function renderDiscipline() {
+      if (!snapshot || !journalData || !selectedCode) return;
+      const stock = snapshot.stocks.find(s => s.code === selectedCode);
+      if (!stock) return;
+      const plan = ensureJournalPlan(selectedCode);
+      $("planTitle").textContent = `${stock.name} 交易纪律`;
+      $("planRole").value = plan.role || "";
+      $("planMaxAccountPct").value = plan.max_account_pct ?? "";
+      $("planMaxTotalPct").value = plan.max_total_capital_pct ?? "";
+      $("planPositionRule").value = plan.position_rule || "";
+      $("planBuyReason").value = plan.buy_reason || "";
+      $("planAddRules").value = linesToText(plan.add_rules);
+      $("planSellRules").value = linesToText(plan.sell_rules);
+      $("planDoNotBuyRules").value = linesToText(plan.do_not_buy_rules);
+      if ($("tradeCode")) $("tradeCode").value = selectedCode;
+      if ($("tradeDate") && !$("tradeDate").value) $("tradeDate").value = new Date().toISOString().slice(0, 10);
+      if ($("tradePrice") && stock.price) $("tradePrice").value = Number(stock.price).toFixed(3);
+      if ($("tradeQty") && !Number($("tradeQty").value)) $("tradeQty").value = stock.holding_qty || 100;
+      renderDisciplineDecision(stock, plan);
+      renderPortfolioDiscipline();
+      renderTrades();
+    }
+
+    function renderDisciplineDecision(stock, plan) {
+      const rv = stock.review || {};
+      const positionValue = stock.market_value || 0;
+      const accountValue = snapshot?.account?.total_assets || 0;
+      const declaredCapital = declaredTotalCapital();
+      const singleWeight = accountValue ? positionValue / accountValue * 100 : null;
+      const totalCapitalWeight = declaredCapital ? positionValue / declaredCapital * 100 : null;
+      const accountLimit = Number(plan.max_account_pct ?? getCategoryLimit(stock.category).max_account_pct ?? NaN);
+      const totalLimit = Number(plan.max_total_capital_pct ?? getCategoryLimit(stock.category).max_total_capital_pct ?? NaN);
+      const accountPosition = snapshot?.account?.position_ratio;
+      const dayLossPct = pctOf(Math.abs(Math.min(snapshot?.account?.day_pnl || 0, 0)), accountValue);
+      const accountOver = Number.isFinite(accountLimit) && singleWeight !== null && singleWeight > accountLimit;
+      const totalOver = Number.isFinite(totalLimit) && totalCapitalWeight !== null && totalCapitalWeight > totalLimit;
+      const accountCrowded = accountPosition !== null && accountPosition !== undefined && accountPosition > 60;
+      const lossStop = dayLossPct !== null && dayLossPct > 1.5;
+      let action = rv.level === "normal" ? "观察" : "复核";
+      if (accountOver || totalOver || lossStop) action = "禁止加仓";
+      else if (accountCrowded && !["银行核心防守"].includes(stock.category)) action = "暂停新增";
+      const messages = [];
+      messages.push(`<span class="pill">${plan.role || stock.category || "观察仓"}</span>`);
+      messages.push(`当前价格 ${fmt(stock.price)}，持仓 ${stock.holding_qty || 0} 股，当前账户单票仓位 ${singleWeight === null ? "--" : fmt(singleWeight)}%，20万总资金口径 ${totalCapitalWeight === null ? "--" : fmt(totalCapitalWeight)}%。`);
+      if (accountOver) messages.push(`当前账户口径已超单票上限：${fmt(singleWeight)}% > ${fmt(accountLimit)}%，原则上只减不加。`);
+      if (totalOver) messages.push(`20万总资金口径已超单票上限：${fmt(totalCapitalWeight)}% > ${fmt(totalLimit)}%，禁止继续加仓。`);
+      if (accountCrowded) messages.push(`当前实盘账户总仓位 ${fmt(accountPosition)}%，已高于60%纪律线，非核心仓暂停新增。`);
+      if (lossStop) messages.push(`今日亏损约 ${fmt(dayLossPct)}% 当前账户资金，触发日内风控，停止新增高波动仓。`);
+      if (rv.level === "normal") {
+        messages.push("未触发价格复核线，默认动作是观察，不主动加仓。");
+      } else {
+        messages.push(`${rv.title}：只代表进入重新评估区间，先按复核清单检查。`);
+      }
+      if (stock.code === "002466" && snapshot?.lithium?.price < 155000) {
+        messages.push("碳酸锂仍低于155000元/吨，天齐不适合扩大仓位。");
+      }
+      if (stock.code === "600585" && stock.price > 16) {
+        messages.push("海螺第二手优先等16元以下，目前不急于加。");
+      }
+      if (stock.code === "600036" && stock.price > 36) {
+        messages.push("招行当前不在加仓舒适区，等35-36元复核更合理。");
+      }
+      $("disciplineDecision").innerHTML = `
+        <div class="kv">
+          <span>建议动作</span><strong class="${action === "禁止加仓" ? "danger-text" : ""}">${action}</strong>
+          <span>仓位纪律</span><strong>${plan.position_rule || "--"}</strong>
+          <span>当前账户上限</span><strong>${Number.isFinite(accountLimit) ? `${fmt(accountLimit)}%` : "--"}</strong>
+          <span>20万口径上限</span><strong>${Number.isFinite(totalLimit) ? `${fmt(totalLimit)}%` : "--"}</strong>
+        </div>
+        <ul>${messages.map(m => `<li>${m}</li>`).join("")}</ul>
+      `;
+    }
+
+    function renderPortfolioDiscipline() {
+      if (!snapshot || !journalData) return;
+      const rules = portfolioRules();
+      const account = snapshot.account || {};
+      const declaredCapital = declaredTotalCapital();
+      const accountPosition = account.position_ratio;
+      const dayLossPct = pctOf(Math.abs(Math.min(account.day_pnl || 0, 0)), account.total_assets);
+      const summaryItems = [];
+      summaryItems.push(`当前账户总资产 ${money(account.total_assets)}，仓位 ${fmt(accountPosition)}%，可用资金 ${money(account.available_cash)}。`);
+      if (declaredCapital) summaryItems.push(`总资金纪律口径 ${money(declaredCapital)}，当前持仓占总资金 ${fmt(pctOf(account.market_value, declaredCapital))}%。`);
+      if (accountPosition > 60) summaryItems.push(`<span class="danger-text">当前账户仓位已超过60%，非核心仓暂停新增。</span>`);
+      if (dayLossPct > 1.5) summaryItems.push(`<span class="danger-text">今日亏损 ${fmt(dayLossPct)}%，触发日内风控，停止新增高波动仓。</span>`);
+      summaryItems.push(rules.cash_rule || "未设置现金规则。");
+      summaryItems.push(rules.add_rule || "未设置加仓规则。");
+      $("portfolioSummary").innerHTML = `<div class="risk-list">${summaryItems.map((item, index) => {
+        const cls = String(item).includes("danger-text") ? "danger" : index < 2 ? "" : "warn";
+        return `<div class="risk-item ${cls}">${item}</div>`;
+      }).join("")}</div>`;
+
+      const byCategory = new Map();
+      (snapshot.stocks || []).forEach(stock => {
+        const value = Number(stock.market_value || 0);
+        if (!value) return;
+        const category = stock.category || "未分类";
+        if (!byCategory.has(category)) byCategory.set(category, 0);
+        byCategory.set(category, byCategory.get(category) + value);
+      });
+      const rows = [...byCategory.entries()].map(([category, value]) => {
+        const limit = getCategoryLimit(category);
+        const accountPct = pctOf(value, account.total_assets);
+        const totalPct = pctOf(value, declaredCapital);
+        const cls = riskClass(accountPct, limit.max_account_pct) || riskClass(totalPct, limit.max_total_capital_pct);
+        return `
+          <tr class="${cls}">
+            <td><strong>${category}</strong></td>
+            <td>${fmt(accountPct)}%</td>
+            <td>${fmt(totalPct)}%</td>
+            <td>账户 ${fmt(limit.max_account_pct)}% / 总资金 ${fmt(limit.max_total_capital_pct)}%</td>
+            <td>${limit.action || "--"}</td>
+          </tr>
+        `;
+      }).join("");
+      $("categoryExposureRows").innerHTML = rows || `<tr><td colspan="5">暂无持仓分类暴露。</td></tr>`;
+    }
+
+    function renderTrades() {
+      const body = $("tradeRows");
+      if (!body || !journalData) return;
+      const allTrades = journalData.trades || [];
+      const realizedTrades = allTrades.filter(t => t.realized_pnl !== null && t.realized_pnl !== undefined && Number.isFinite(Number(t.realized_pnl)));
+      const realizedPnl = realizedTrades.reduce((sum, t) => sum + Number(t.realized_pnl), 0);
+      const grossPnl = realizedTrades
+        .filter(t => t.realized_pnl_basis === "gross")
+        .reduce((sum, t) => sum + Number(t.realized_pnl), 0);
+      const pendingSells = allTrades.filter(t => t.action === "卖出" && !realizedTrades.includes(t)).length;
+      const realizedClass = pctClass(realizedPnl);
+      $("realizedPnl").innerHTML = `<span class="${realizedClass}">${signedMoney(realizedPnl)}</span>`;
+      $("tradePnlSummary").innerHTML = `
+        <div class="trade-pnl-item">
+          <span>已实现盈亏（已记录）</span>
+          <strong class="${realizedClass}">${signedMoney(realizedPnl)} 元</strong>
+        </div>
+        <div class="trade-pnl-item">
+          <span>其中毛收益（未扣费）</span>
+          <strong class="${pctClass(grossPnl)}">${signedMoney(grossPnl)} 元</strong>
+        </div>
+        <div class="trade-pnl-item">
+          <span>待补卖出记录</span>
+          <strong>${pendingSells} 笔</strong>
+        </div>
+        <div class="trade-pnl-note">这里只汇总交易日志中已明确记录的已实现盈亏，不与当前持仓收益混算；7月9日天齐做T的94元为毛收益，尚未扣除手续费及税费。</div>
+      `;
+      const trades = [...allTrades].reverse();
+      body.innerHTML = trades.map(t => `
+        <tr>
+          <td>${t.date || "--"}</td>
+          <td><strong>${t.name || t.code}</strong><div class="code">${t.code || ""}</div></td>
+          <td>${t.action || "--"}</td>
+          <td>${fmt(t.price, 3)}</td>
+          <td>${t.qty ?? "--"}</td>
+          <td class="${pctClass(t.realized_pnl)}">${t.realized_pnl !== null && t.realized_pnl !== undefined
+            ? `<strong>${signedMoney(t.realized_pnl)} 元</strong><div class="code">${t.realized_pnl_basis === "gross" ? "毛收益，未扣费" : "券商记录"}</div>`
+            : t.action === "卖出" ? `<span class="badge pending">待补</span>` : "--"}</td>
+          <td>${t.reason || ""}</td>
+          <td>${t.note || ""}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadJournal() {
+      const res = await fetch("/api/journal", { cache: "no-store" });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      journalData = data;
+      renderDiscipline();
+    }
+
+    async function saveJournal() {
+      const res = await fetch("/api/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(journalData),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "保存失败");
+      journalData.updated_at = new Date().toLocaleString("zh-CN", { hour12: false });
+    }
+
+    async function saveCurrentPlan() {
+      if (!journalData || !selectedCode) return;
+      const plan = ensureJournalPlan(selectedCode);
+      plan.role = $("planRole").value.trim();
+      plan.max_account_pct = Number($("planMaxAccountPct").value || 0) || null;
+      plan.max_total_capital_pct = Number($("planMaxTotalPct").value || 0) || null;
+      plan.position_rule = $("planPositionRule").value.trim();
+      plan.buy_reason = $("planBuyReason").value.trim();
+      plan.add_rules = textToLines($("planAddRules").value);
+      plan.sell_rules = textToLines($("planSellRules").value);
+      plan.do_not_buy_rules = textToLines($("planDoNotBuyRules").value);
+      await saveJournal();
+      renderDiscipline();
+      showToast(
+        { code: "system", name: "纪律", price: null, quote_time: "", review: { level: "watch", trigger: null } },
+        "规则已保存",
+        "当前股票的买入理由、仓位纪律和卖出规则已保存到私有云端。"
+      );
+    }
+
+    async function addTrade() {
+      if (!journalData || !snapshot) return;
+      const code = $("tradeCode").value;
+      const stock = snapshot.stocks.find(s => s.code === code);
+      const realizedPnlInput = $("tradeRealizedPnl").value.trim();
+      const trade = {
+        date: $("tradeDate").value.trim() || new Date().toISOString().slice(0, 10),
+        code,
+        name: stock?.name || code,
+        action: $("tradeAction").value,
+        price: Number($("tradePrice").value || stock?.price || 0),
+        qty: Number($("tradeQty").value || 0),
+        reason: $("tradeReason").value.trim(),
+        note: $("tradeNote").value.trim(),
+      };
+      if (realizedPnlInput !== "") {
+        trade.realized_pnl = Number(realizedPnlInput);
+        trade.realized_pnl_basis = "broker_net";
+      }
+      if (!trade.reason) {
+        alert("先写交易理由，再记录。");
+        return;
+      }
+      journalData.trades = journalData.trades || [];
+      journalData.trades.push(trade);
+      await saveJournal();
+      $("tradeReason").value = "";
+      $("tradeNote").value = "";
+      $("tradeRealizedPnl").value = "";
+      renderTrades();
+      showToast(
+        { code: "system", name: "交易记录", price: null, quote_time: "", review: { level: "watch", trigger: null } },
+        "交易记录已新增",
+        `${trade.name} ${trade.action} ${trade.qty || "--"} 股，价格 ${fmt(trade.price, 3)}。`
+      );
+    }
+
+    async function refresh() {
+      $("refreshBtn").disabled = true;
+      try {
+        const res = await fetch("/api/snapshot", { cache: "no-store" });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderSnapshot(data);
+      } catch (err) {
+        $("status").textContent = `加载失败：${err.message}`;
+      } finally {
+        $("refreshBtn").disabled = false;
+      }
+    }
+
+    function updateAlertButtons() {
+      const notificationState = "Notification" in window ? Notification.permission : "unsupported";
+      const enabled = alertsArmed && (notificationState === "granted" || notificationState === "unsupported");
+      $("enableAlertBtn").textContent = enabled ? "提醒已开" : "开启提醒";
+      $("enableAlertBtn").classList.toggle("enabled", enabled);
+      $("soundBtn").textContent = soundEnabled ? "声音开" : "声音关";
+      $("soundBtn").classList.toggle("enabled", soundEnabled);
+    }
+
+    function persistAlertMemory() {
+      localStorage.setItem("stockAlertMemory", JSON.stringify(alertMemory));
+    }
+
+    function shouldAlert(stock) {
+      const level = stock.review?.level || "normal";
+      const priority = alertLevels[level] || 0;
+      if (priority === 0) {
+        if (alertMemory[stock.code]) {
+          alertMemory[stock.code] = { level: "normal", priority: 0, lastAt: Date.now() };
+          persistAlertMemory();
+        }
+        return false;
+      }
+      const now = Date.now();
+      const previous = alertMemory[stock.code] || {};
+      const cooldownMs = 30 * 60 * 1000;
+      const upgraded = priority > (previous.priority || 0);
+      const levelChanged = previous.level !== level;
+      const cooledDown = now - (previous.lastAt || 0) > cooldownMs;
+      if (upgraded || levelChanged || cooledDown) {
+        alertMemory[stock.code] = { level, priority, lastAt: now, price: stock.price };
+        persistAlertMemory();
+        return true;
+      }
+      return false;
+    }
+
+    function processAlerts(stocks) {
+      const active = stocks.filter(s => ["watch", "strong", "risk"].includes(s.review?.level));
+      if (!active.length) return;
+      active.forEach(stock => {
+        if (shouldAlert(stock)) showStockAlert(stock);
+      });
+    }
+
+    function showStockAlert(stock) {
+      const level = stock.review?.level || "watch";
+      const title = `${stock.name} ${stock.code} ${alertLevelNames[level] || stock.review?.title || "触发复核"}`;
+      const line = stock.review?.strong && level === "strong" ? stock.review.strong : stock.review?.trigger;
+      const body = `现价 ${fmt(stock.price)}，复核线 ${fmt(line)}，时间 ${stock.quote_time || "--"}。这只是重新评估区间，不构成买入建议。`;
+      showToast(stock, title, body);
+      sendDesktopNotification(stock, title, body);
+      playAlertSound(level);
+    }
+
+    function showToast(stock, title, body) {
+      const stack = $("toastStack");
+      const toast = document.createElement("div");
+      toast.className = `toast ${stock.review?.level === "watch" ? "watch" : ""}`;
+      toast.innerHTML = `
+        <div class="toast-head">
+          <span>${title}</span>
+          <button class="toast-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="toast-body">${body}</div>
+        <div class="toast-actions">
+          ${stock.code !== "system" ? '<button type="button" data-action="view">查看</button>' : ""}
+          <button type="button" data-action="close">关闭</button>
+        </div>
+      `;
+      stack.prepend(toast);
+      while (stack.children.length > 5) stack.lastElementChild.remove();
+      toast.querySelector(".toast-close").addEventListener("click", () => toast.remove());
+      toast.querySelector('[data-action="close"]').addEventListener("click", () => toast.remove());
+      const viewButton = toast.querySelector('[data-action="view"]');
+      if (viewButton) {
+        viewButton.addEventListener("click", () => {
+          selectStock(stock.code);
+          toast.remove();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+      setTimeout(() => toast.remove(), 18000);
+    }
+
+    function sendDesktopNotification(stock, title, body) {
+      if (!alertsArmed || !("Notification" in window) || Notification.permission !== "granted") return;
+      const notification = new Notification(title, {
+        body,
+        tag: `stock-alert-${stock.code}-${stock.review?.level}`,
+        renotify: false,
+      });
+      notification.onclick = () => {
+        window.focus();
+        selectStock(stock.code);
+        notification.close();
+      };
+    }
+
+    function ensureAudio() {
+      if (!audioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+        audioContext = new AudioCtx();
+      }
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    function playTone(ctx, startOffset, frequency, duration, gainValue) {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + startOffset);
+      gain.gain.setValueAtTime(0, ctx.currentTime + startOffset);
+      gain.gain.linearRampToValueAtTime(gainValue, ctx.currentTime + startOffset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + duration);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(ctx.currentTime + startOffset);
+      oscillator.stop(ctx.currentTime + startOffset + duration + 0.03);
+    }
+
+    function playAlertSound(level) {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const base = level === "watch" ? 740 : 880;
+      playTone(ctx, 0, base, 0.16, 0.08);
+      playTone(ctx, 0.19, base * 1.25, 0.18, 0.075);
+      if (level === "strong" || level === "risk") playTone(ctx, 0.42, base * 0.9, 0.22, 0.07);
+    }
+
+    async function enableAlerts() {
+      alertsArmed = true;
+      localStorage.setItem("stockAlertsArmed", "1");
+      ensureAudio();
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      updateAlertButtons();
+      showToast(
+        { code: "system", name: "提醒", price: null, quote_time: "", review: { level: "watch", trigger: null } },
+        "提醒已开启",
+        "页面弹窗、声音和浏览器通知会在复核线触发时提示。同一级别30分钟内不重复提醒。"
+      );
+    }
+
+    function renderFinanceTable(rows) {
+      if (!rows || !rows.length) return "<div class='notice'>没有取到数据。</div>";
+      return `
+        <table class="finance-table">
+          <thead>
+            <tr>
+              <th>报告期</th><th>营收(亿)</th><th>营收同比</th><th>归母净利(亿)</th><th>净利同比</th><th>EPS</th><th>ROE</th><th>每股现金流</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.report || "--"}</td>
+                <td>${fmt(r.revenue_yi)}</td>
+                <td class="${pctClass(r.revenue_yoy)}">${fmt(r.revenue_yoy)}%</td>
+                <td>${fmt(r.net_profit_yi)}</td>
+                <td class="${pctClass(r.net_profit_yoy)}">${fmt(r.net_profit_yoy)}%</td>
+                <td>${fmt(r.eps)}</td>
+                <td>${fmt(r.roe)}%</td>
+                <td>${fmt(r.cashflow_per_share)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    async function loadFinance() {
+      if (!selectedCode) return;
+      $("financePanel").classList.remove("hidden");
+      $("financeContent").textContent = "正在加载财报摘要...";
+      const res = await fetch(`/api/financials?code=${selectedCode}`, { cache: "no-store" });
+      const data = await res.json();
+      $("financeContent").innerHTML = `
+        <div class="section">
+          <h4>季度数据</h4>
+          ${renderFinanceTable(data.quarterly)}
+        </div>
+        <div class="section">
+          <h4>年度数据</h4>
+          ${renderFinanceTable(data.annual)}
+        </div>
+        <div class="notice">来源：${data.source || "东方财富F10"}。财务接口用于快速复核，正式判断应以公司公告原文为准。</div>
+      `;
+    }
+
+    function chartTypeLabel(type) {
+      return ({ intraday: "分时走势", daily: "日K线", weekly: "周K线", monthly: "月K线" })[type] || "走势图";
+    }
+
+    async function loadChart() {
+      if (!selectedCode) return;
+      const stock = snapshot?.stocks?.find(s => s.code === selectedCode);
+      $("chartTitle").textContent = `${stock?.name || selectedCode} ${chartTypeLabel(chartType)}`;
+      $("chartStatus").textContent = "正在加载走势图...";
+      try {
+        const res = await fetch(`/api/chart?code=${selectedCode}&type=${chartType}`, { cache: "no-store" });
+        chartData = await res.json();
+        if (chartData.error) throw new Error(chartData.error);
+        drawChart(chartData);
+        const actionHint = chartData.type === "intraday" ? "分时暂不缩放" : "可缩放/拖拽";
+        $("chartStatus").textContent = `${chartData.source || "行情"}，${chartData.rows?.length || 0} 条数据，${actionHint}`;
+      } catch (err) {
+        $("chartStatus").textContent = "走势图加载失败，请稍后点刷新图表。";
+        clearChart("走势图加载失败");
+      }
+    }
+
+    function setupCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, width: rect.width, height: rect.height };
+    }
+
+    function clearChart(text) {
+      const canvas = $("priceChart");
+      const { ctx, width, height } = setupCanvas(canvas);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#687386";
+      ctx.font = "14px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(text || "没有数据", width / 2, height / 2);
+    }
+
+    function niceNumber(n) {
+      if (n === null || n === undefined || Number.isNaN(Number(n))) return "--";
+      return Number(n).toFixed(Math.abs(n) >= 100 ? 0 : 2);
+    }
+
+    function drawGrid(ctx, left, top, width, height) {
+      ctx.strokeStyle = "#edf0f5";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = top + height * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + width, y);
+        ctx.stroke();
+      }
+      for (let i = 0; i <= 4; i++) {
+        const x = left + width * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, top + height);
+        ctx.stroke();
+      }
+    }
+
+    function drawChart(data) {
+      if (!data.rows || !data.rows.length) {
+        clearChart("没有走势图数据");
+        return;
+      }
+      if (data.type === "intraday") drawIntraday(data);
+      else drawKline(data);
+    }
+
+    function chartKey(data = chartData) {
+      return data ? `${data.code}:${data.type}` : `${selectedCode}:${chartType}`;
+    }
+
+    function minVisibleRows(type) {
+      return type === "monthly" ? 18 : type === "weekly" ? 24 : 30;
+    }
+
+    function getChartView(data, total) {
+      const key = chartKey(data);
+      let view = chartViews[key];
+      if (!view) {
+        view = { start: 0, end: total, total };
+        chartViews[key] = view;
+        return view;
+      }
+      const previousTotal = view.total || total;
+      const width = Math.max(1, view.end - view.start);
+      if (view.end >= previousTotal) {
+        view.end = total;
+        view.start = Math.max(0, total - width);
+      }
+      view.total = total;
+      clampChartView(view, total, data.type);
+      return view;
+    }
+
+    function clampChartView(view, total, type) {
+      const minCount = Math.min(total, minVisibleRows(type));
+      let count = Math.max(minCount, Math.min(total, view.end - view.start));
+      view.start = Math.round(Math.max(0, Math.min(total - count, view.start)));
+      view.end = view.start + count;
+      if (view.end > total) {
+        view.end = total;
+        view.start = Math.max(0, total - count);
+      }
+    }
+
+    function getVisibleKRows(data) {
+      const rows = data.rows.filter(r => r.open && r.close && r.high && r.low);
+      const view = getChartView(data, rows.length);
+      return { rows, view, visibleRows: rows.slice(view.start, view.end) };
+    }
+
+    function setZoomButtonsEnabled(enabled) {
+      ["zoomInBtn", "zoomOutBtn", "resetZoomBtn"].forEach(id => {
+        const el = $(id);
+        if (el) el.disabled = !enabled;
+      });
+      $("priceChart").style.cursor = enabled ? "grab" : "default";
+    }
+
+    function zoomChart(factor, anchorRatio = 0.5) {
+      if (!chartData || chartData.type === "intraday") return;
+      const allRows = chartData.rows.filter(r => r.open && r.close && r.high && r.low);
+      const total = allRows.length;
+      if (!total) return;
+      const view = getChartView(chartData, total);
+      const oldCount = view.end - view.start;
+      const minCount = Math.min(total, minVisibleRows(chartData.type));
+      const newCount = Math.max(minCount, Math.min(total, Math.round(oldCount * factor)));
+      const anchor = view.start + oldCount * anchorRatio;
+      view.start = Math.round(anchor - newCount * anchorRatio);
+      view.end = view.start + newCount;
+      clampChartView(view, total, chartData.type);
+      drawChart(chartData);
+    }
+
+    function panChart(deltaBars) {
+      if (!chartData || chartData.type === "intraday") return;
+      const allRows = chartData.rows.filter(r => r.open && r.close && r.high && r.low);
+      const view = getChartView(chartData, allRows.length);
+      const count = view.end - view.start;
+      view.start += deltaBars;
+      view.end = view.start + count;
+      clampChartView(view, allRows.length, chartData.type);
+      drawChart(chartData);
+    }
+
+    function resetChartZoom() {
+      if (!chartData || chartData.type === "intraday") return;
+      const allRows = chartData.rows.filter(r => r.open && r.close && r.high && r.low);
+      chartViews[chartKey(chartData)] = { start: 0, end: allRows.length, total: allRows.length };
+      drawChart(chartData);
+    }
+
+    function chartAnchorRatio(event) {
+      const canvas = $("priceChart");
+      const rect = canvas.getBoundingClientRect();
+      const left = 54;
+      const right = 14;
+      const chartWidth = Math.max(1, rect.width - left - right);
+      return Math.max(0, Math.min(1, (event.clientX - rect.left - left) / chartWidth));
+    }
+
+    function startChartDrag(event) {
+      if (!chartData || chartData.type === "intraday") return;
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      const allRows = chartData.rows.filter(r => r.open && r.close && r.high && r.low);
+      if (!allRows.length) return;
+      const canvas = $("priceChart");
+      const rect = canvas.getBoundingClientRect();
+      const view = getChartView(chartData, allRows.length);
+      chartDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        viewStart: view.start,
+        count: view.end - view.start,
+        chartWidth: Math.max(1, rect.width - 68),
+      };
+      canvas.classList.add("dragging");
+      canvas.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveChartDrag(event) {
+      if (!chartDrag || !chartData || chartData.type === "intraday") return;
+      const allRows = chartData.rows.filter(r => r.open && r.close && r.high && r.low);
+      const view = getChartView(chartData, allRows.length);
+      const barsPerPixel = chartDrag.count / chartDrag.chartWidth;
+      const deltaBars = Math.round(-(event.clientX - chartDrag.startX) * barsPerPixel);
+      view.start = chartDrag.viewStart + deltaBars;
+      view.end = view.start + chartDrag.count;
+      clampChartView(view, allRows.length, chartData.type);
+      drawChart(chartData);
+    }
+
+    function endChartDrag(event) {
+      if (!chartDrag) return;
+      const canvas = $("priceChart");
+      canvas.classList.remove("dragging");
+      try { canvas.releasePointerCapture?.(chartDrag.pointerId || event.pointerId); } catch {}
+      chartDrag = null;
+    }
+
+    function drawKline(data) {
+      const canvas = $("priceChart");
+      const { ctx, width, height } = setupCanvas(canvas);
+      const { rows: allRows, view, visibleRows } = getVisibleKRows(data);
+      const rows = visibleRows;
+      if (!rows.length) return clearChart("没有K线数据");
+      setZoomButtonsEnabled(true);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 54, right = 14, top = 18, bottom = 28;
+      const volumeHeight = 86;
+      const gap = 20;
+      const priceHeight = height - top - bottom - volumeHeight - gap;
+      const chartWidth = width - left - right;
+      const volumeTop = top + priceHeight + gap;
+      const highs = rows.map(r => Number(r.high));
+      const lows = rows.map(r => Number(r.low));
+      const maxPrice = Math.max(...highs);
+      const minPrice = Math.min(...lows);
+      const pad = Math.max((maxPrice - minPrice) * 0.06, 0.01);
+      const pMax = maxPrice + pad;
+      const pMin = minPrice - pad;
+      const maxVolume = Math.max(...rows.map(r => Number(r.volume || 0)), 1);
+      const xStep = chartWidth / rows.length;
+      const candleW = Math.max(2, Math.min(12, xStep * 0.64));
+      const y = p => top + (pMax - p) / (pMax - pMin) * priceHeight;
+      const vy = v => volumeTop + volumeHeight - (v / maxVolume) * volumeHeight;
+
+      drawGrid(ctx, left, top, chartWidth, priceHeight);
+      drawGrid(ctx, left, volumeTop, chartWidth, volumeHeight);
+
+      ctx.font = "12px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#687386";
+      for (let i = 0; i <= 4; i++) {
+        const val = pMax - (pMax - pMin) * i / 4;
+        ctx.fillText(niceNumber(val), left - 7, top + priceHeight * i / 4 + 4);
+      }
+
+      rows.forEach((r, i) => {
+        const x = left + xStep * i + xStep / 2;
+        const open = Number(r.open), close = Number(r.close), high = Number(r.high), low = Number(r.low);
+        const up = close >= open;
+        ctx.strokeStyle = up ? "#c7352f" : "#12805c";
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.moveTo(x, y(high));
+        ctx.lineTo(x, y(low));
+        ctx.stroke();
+        const bodyTop = Math.min(y(open), y(close));
+        const bodyH = Math.max(1, Math.abs(y(open) - y(close)));
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+
+        const volTop = vy(Number(r.volume || 0));
+        ctx.globalAlpha = 0.55;
+        ctx.fillRect(x - candleW / 2, volTop, candleW, volumeTop + volumeHeight - volTop);
+        ctx.globalAlpha = 1;
+      });
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#687386";
+      ctx.fillText(rows[0].date, left, height - 8);
+      ctx.textAlign = "center";
+      ctx.fillText(rows[Math.floor(rows.length / 2)].date, left + chartWidth / 2, height - 8);
+      ctx.textAlign = "right";
+      ctx.fillText(rows[rows.length - 1].date, left + chartWidth, height - 8);
+
+      const last = rows[rows.length - 1];
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#162033";
+      ctx.font = "13px Microsoft YaHei, sans-serif";
+      ctx.fillText(`最新：${last.date} 收 ${fmt(last.close)} 涨跌 ${fmt(last.pct)}%`, left, 14);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#687386";
+      ctx.fillText(`显示 ${view.start + 1}-${view.end} / ${allRows.length}`, left + chartWidth, 14);
+    }
+
+    function drawIntraday(data) {
+      const canvas = $("priceChart");
+      const { ctx, width, height } = setupCanvas(canvas);
+      const rows = data.rows.filter(r => r.close);
+      if (!rows.length) return clearChart("没有分时数据");
+      setZoomButtonsEnabled(false);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 54, right = 14, top = 18, bottom = 28;
+      const volumeHeight = 86;
+      const gap = 20;
+      const priceHeight = height - top - bottom - volumeHeight - gap;
+      const chartWidth = width - left - right;
+      const volumeTop = top + priceHeight + gap;
+      const preClose = Number(data.pre_close || rows[0].close);
+      const prices = rows.flatMap(r => [Number(r.close), Number(r.high || r.close), Number(r.low || r.close)]).filter(Number.isFinite);
+      const maxDiff = Math.max(...prices.map(p => Math.abs(p - preClose)), Math.max(...prices) - Math.min(...prices), 0.01);
+      const pMax = preClose + maxDiff * 1.08;
+      const pMin = preClose - maxDiff * 1.08;
+      const maxVolume = Math.max(...rows.map(r => Number(r.volume || 0)), 1);
+      const xStep = chartWidth / Math.max(rows.length - 1, 1);
+      const y = p => top + (pMax - p) / (pMax - pMin) * priceHeight;
+      const vy = v => volumeTop + volumeHeight - (v / maxVolume) * volumeHeight;
+
+      drawGrid(ctx, left, top, chartWidth, priceHeight);
+      drawGrid(ctx, left, volumeTop, chartWidth, volumeHeight);
+
+      ctx.strokeStyle = "#9aa3b2";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(left, y(preClose));
+      ctx.lineTo(left + chartWidth, y(preClose));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = "12px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#687386";
+      for (let i = 0; i <= 4; i++) {
+        const val = pMax - (pMax - pMin) * i / 4;
+        ctx.fillText(niceNumber(val), left - 7, top + priceHeight * i / 4 + 4);
+      }
+
+      ctx.strokeStyle = "#2459c6";
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      rows.forEach((r, i) => {
+        const x = left + xStep * i;
+        const yy = y(Number(r.close));
+        if (i === 0) ctx.moveTo(x, yy);
+        else ctx.lineTo(x, yy);
+      });
+      ctx.stroke();
+
+      ctx.strokeStyle = "#b86400";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      let avgStarted = false;
+      rows.forEach((r, i) => {
+        if (!r.avg_price) return;
+        const x = left + xStep * i;
+        const yy = y(Number(r.avg_price));
+        if (!avgStarted) {
+          ctx.moveTo(x, yy);
+          avgStarted = true;
+        } else {
+          ctx.lineTo(x, yy);
+        }
+      });
+      ctx.stroke();
+
+      rows.forEach((r, i) => {
+        const x = left + xStep * i;
+        const close = Number(r.close);
+        ctx.fillStyle = close >= preClose ? "#c7352f" : "#12805c";
+        const volTop = vy(Number(r.volume || 0));
+        ctx.globalAlpha = 0.45;
+        ctx.fillRect(x - 1, volTop, 2, volumeTop + volumeHeight - volTop);
+        ctx.globalAlpha = 1;
+      });
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#687386";
+      ctx.fillText(rows[0].time.slice(11, 16), left, height - 8);
+      ctx.textAlign = "center";
+      ctx.fillText("11:30 / 13:00", left + chartWidth / 2, height - 8);
+      ctx.textAlign = "right";
+      ctx.fillText(rows[rows.length - 1].time.slice(11, 16), left + chartWidth, height - 8);
+
+      const last = rows[rows.length - 1];
+      const chg = (Number(last.close) - preClose) / preClose * 100;
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#162033";
+      ctx.font = "13px Microsoft YaHei, sans-serif";
+      ctx.fillText(`最新：${last.time.slice(11, 16)} ${fmt(last.close)}  均价 ${fmt(last.avg_price)}  涨跌 ${fmt(chg)}%`, left, 14);
+    }
+
+    function lithiumChartTypeLabel(type) {
+      return ({
+        minute1: "1分钟K线",
+        minute5: "5分钟K线",
+        minute15: "15分钟K线",
+        minute30: "30分钟K线",
+        minute60: "60分钟K线",
+        daily: "日K线",
+        weekly: "周K线",
+        monthly: "月K线",
+      })[type] || "走势图";
+    }
+
+    async function loadLithiumChart() {
+      const requestId = ++lithiumChartRequestId;
+      $("lithiumChartTitle").textContent = `碳酸锂连续 ${lithiumChartTypeLabel(lithiumChartType)}`;
+      $("lithiumChartStatus").textContent = "正在加载碳酸锂走势...";
+      try {
+        const res = await fetch(`/api/lithium-chart?type=${lithiumChartType}`, { cache: "no-store" });
+        const data = await res.json();
+        if (requestId !== lithiumChartRequestId) return;
+        if (data.error) throw new Error(data.error);
+        lithiumChartData = data;
+        drawLithiumChart(data);
+        const warning = data.warning ? `；${data.warning}` : "";
+        $("lithiumChartStatus").textContent = `${data.source || "期货行情"}，${data.rows?.length || 0} 条；${data.contract_note || ""}${warning}`;
+      } catch (err) {
+        if (requestId !== lithiumChartRequestId) return;
+        $("lithiumChartStatus").textContent = `碳酸锂走势图加载失败：${err.message}`;
+        clearLithiumChart("碳酸锂走势加载失败");
+      }
+    }
+
+    function clearLithiumChart(text) {
+      const canvas = $("lithiumChart");
+      const { ctx, width, height } = setupCanvas(canvas);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#687386";
+      ctx.font = "14px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(text || "没有数据", width / 2, height / 2);
+      setLithiumZoomButtonsEnabled(false);
+    }
+
+    function lithiumChartKey(data = lithiumChartData) {
+      return data?.type || lithiumChartType;
+    }
+
+    function lithiumMinVisibleRows(type) {
+      return type === "monthly" ? 12 : type === "weekly" ? 20 : 30;
+    }
+
+    function lithiumRows(data = lithiumChartData) {
+      return (data?.rows || []).filter(row =>
+        [row.open, row.close, row.high, row.low].every(value => Number.isFinite(Number(value)) && Number(value) > 0)
+      );
+    }
+
+    function clampLithiumChartView(view, total, type) {
+      const minCount = Math.min(total, lithiumMinVisibleRows(type));
+      let count = Math.max(minCount, Math.min(total, view.end - view.start));
+      view.start = Math.round(Math.max(0, Math.min(total - count, view.start)));
+      view.end = view.start + count;
+      if (view.end > total) {
+        view.end = total;
+        view.start = Math.max(0, total - count);
+      }
+    }
+
+    function getLithiumChartView(data, total) {
+      const key = lithiumChartKey(data);
+      let view = lithiumChartViews[key];
+      if (!view) {
+        const count = Math.min(total, Number(data.default_visible || total));
+        view = { start: Math.max(0, total - count), end: total, total };
+        lithiumChartViews[key] = view;
+        return view;
+      }
+      const previousTotal = view.total || total;
+      const count = Math.max(1, view.end - view.start);
+      if (view.end >= previousTotal) {
+        view.end = total;
+        view.start = Math.max(0, total - count);
+      }
+      view.total = total;
+      clampLithiumChartView(view, total, data.type);
+      return view;
+    }
+
+    function setLithiumZoomButtonsEnabled(enabled) {
+      ["lithiumZoomInBtn", "lithiumZoomOutBtn", "lithiumResetZoomBtn"].forEach(id => {
+        const el = $(id);
+        if (el) el.disabled = !enabled;
+      });
+      $("lithiumChart").style.cursor = enabled ? "grab" : "default";
+    }
+
+    function zoomLithiumChart(factor, anchorRatio = 0.5) {
+      if (!lithiumChartData) return;
+      const rows = lithiumRows();
+      const total = rows.length;
+      if (!total) return;
+      const view = getLithiumChartView(lithiumChartData, total);
+      const oldCount = view.end - view.start;
+      const minCount = Math.min(total, lithiumMinVisibleRows(lithiumChartData.type));
+      const newCount = Math.max(minCount, Math.min(total, Math.round(oldCount * factor)));
+      const anchor = view.start + oldCount * anchorRatio;
+      view.start = Math.round(anchor - newCount * anchorRatio);
+      view.end = view.start + newCount;
+      clampLithiumChartView(view, total, lithiumChartData.type);
+      drawLithiumChart(lithiumChartData);
+    }
+
+    function resetLithiumChartZoom() {
+      if (!lithiumChartData) return;
+      const rows = lithiumRows();
+      const count = Math.min(rows.length, Number(lithiumChartData.default_visible || rows.length));
+      lithiumChartViews[lithiumChartKey()] = {
+        start: Math.max(0, rows.length - count),
+        end: rows.length,
+        total: rows.length,
+      };
+      drawLithiumChart(lithiumChartData);
+    }
+
+    function lithiumChartAnchorRatio(event) {
+      const rect = $("lithiumChart").getBoundingClientRect();
+      const left = 64;
+      const right = 12;
+      const width = Math.max(1, rect.width - left - right);
+      return Math.max(0, Math.min(1, (event.clientX - rect.left - left) / width));
+    }
+
+    function startLithiumChartDrag(event) {
+      if (!lithiumChartData || (event.button !== undefined && event.button !== 0)) return;
+      const rows = lithiumRows();
+      if (!rows.length) return;
+      event.preventDefault();
+      const canvas = $("lithiumChart");
+      const rect = canvas.getBoundingClientRect();
+      const view = getLithiumChartView(lithiumChartData, rows.length);
+      lithiumChartDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        viewStart: view.start,
+        count: view.end - view.start,
+        chartWidth: Math.max(1, rect.width - 76),
+      };
+      canvas.classList.add("dragging");
+      canvas.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveLithiumChartDrag(event) {
+      if (!lithiumChartDrag || !lithiumChartData) return;
+      const rows = lithiumRows();
+      const view = getLithiumChartView(lithiumChartData, rows.length);
+      const barsPerPixel = lithiumChartDrag.count / lithiumChartDrag.chartWidth;
+      const deltaBars = Math.round(-(event.clientX - lithiumChartDrag.startX) * barsPerPixel);
+      view.start = lithiumChartDrag.viewStart + deltaBars;
+      view.end = view.start + lithiumChartDrag.count;
+      clampLithiumChartView(view, rows.length, lithiumChartData.type);
+      drawLithiumChart(lithiumChartData);
+    }
+
+    function endLithiumChartDrag(event) {
+      if (!lithiumChartDrag) return;
+      const canvas = $("lithiumChart");
+      canvas.classList.remove("dragging");
+      try { canvas.releasePointerCapture?.(lithiumChartDrag.pointerId || event.pointerId); } catch {}
+      lithiumChartDrag = null;
+    }
+
+    function drawLithiumChart(data) {
+      const canvas = $("lithiumChart");
+      const { ctx, width, height } = setupCanvas(canvas);
+      const allRows = lithiumRows(data);
+      if (!allRows.length) return clearLithiumChart("没有碳酸锂K线数据");
+      const view = getLithiumChartView(data, allRows.length);
+      const rows = allRows.slice(view.start, view.end);
+      if (!rows.length) return clearLithiumChart("没有碳酸锂K线数据");
+      setLithiumZoomButtonsEnabled(true);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 64, right = 12, top = 24, bottom = 28;
+      const volumeHeight = 72;
+      const gap = 18;
+      const priceHeight = height - top - bottom - volumeHeight - gap;
+      const chartWidth = width - left - right;
+      const volumeTop = top + priceHeight + gap;
+      const rawMax = Math.max(...rows.map(row => Number(row.high)));
+      const rawMin = Math.min(...rows.map(row => Number(row.low)));
+      const rawRange = Math.max(rawMax - rawMin, rawMax * 0.02, 1);
+      const nearbyLines = (data.reference_lines || [])
+        .map(line => Number(line.value))
+        .filter(value => value >= rawMin - rawRange * .12 && value <= rawMax + rawRange * .12);
+      const maxPrice = Math.max(rawMax, ...nearbyLines);
+      const minPrice = Math.min(rawMin, ...nearbyLines);
+      const pad = Math.max((maxPrice - minPrice) * .06, maxPrice * .005, 100);
+      const pMax = maxPrice + pad;
+      const pMin = minPrice - pad;
+      const maxVolume = Math.max(...rows.map(row => Number(row.volume || 0)), 1);
+      const xStep = chartWidth / rows.length;
+      const candleW = Math.max(2, Math.min(10, xStep * .62));
+      const y = price => top + (pMax - price) / (pMax - pMin) * priceHeight;
+      const vy = volume => volumeTop + volumeHeight - (volume / maxVolume) * volumeHeight;
+
+      drawGrid(ctx, left, top, chartWidth, priceHeight);
+      drawGrid(ctx, left, volumeTop, chartWidth, volumeHeight);
+
+      ctx.font = "11px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#687386";
+      for (let i = 0; i <= 4; i++) {
+        const value = pMax - (pMax - pMin) * i / 4;
+        ctx.fillText(Math.round(value).toLocaleString("zh-CN"), left - 6, top + priceHeight * i / 4 + 4);
+      }
+
+      const referenceColors = { risk: "#c7352f", watch: "#b86400", stable: "#2459c6" };
+      (data.reference_lines || []).forEach(line => {
+        const value = Number(line.value);
+        if (!Number.isFinite(value) || value < pMin || value > pMax) return;
+        const lineY = y(value);
+        ctx.strokeStyle = referenceColors[line.level] || "#687386";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(left, lineY);
+        ctx.lineTo(left + chartWidth, lineY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      rows.forEach((row, index) => {
+        const x = left + xStep * index + xStep / 2;
+        const open = Number(row.open);
+        const close = Number(row.close);
+        const high = Number(row.high);
+        const low = Number(row.low);
+        const color = close >= open ? "#c7352f" : "#12805c";
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y(high));
+        ctx.lineTo(x, y(low));
+        ctx.stroke();
+        const bodyTop = Math.min(y(open), y(close));
+        const bodyHeight = Math.max(1, Math.abs(y(open) - y(close)));
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyHeight);
+
+        const volumeY = vy(Number(row.volume || 0));
+        ctx.globalAlpha = .48;
+        ctx.fillRect(x - candleW / 2, volumeY, candleW, volumeTop + volumeHeight - volumeY);
+        ctx.globalAlpha = 1;
+      });
+
+      const isMinuteChart = String(data.type || "").startsWith("minute");
+      const firstDateText = String(rows[0].date || "");
+      const lastDateText = String(rows[rows.length - 1].date || "");
+      const sameTradingDate = isMinuteChart && firstDateText.slice(0, 10) === lastDateText.slice(0, 10);
+      const axisLabel = value => {
+        const text = String(value || "");
+        if (!isMinuteChart) return text;
+        return sameTradingDate ? text.slice(11, 16) : text.slice(5, 16);
+      };
+
+      ctx.fillStyle = "#687386";
+      ctx.font = "11px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(axisLabel(rows[0].date), left, height - 8);
+      ctx.textAlign = "center";
+      ctx.fillText(axisLabel(rows[Math.floor(rows.length / 2)].date), left + chartWidth / 2, height - 8);
+      ctx.textAlign = "right";
+      ctx.fillText(axisLabel(rows[rows.length - 1].date), left + chartWidth, height - 8);
+
+      const last = rows[rows.length - 1];
+      const pct = Number(last.pct);
+      ctx.font = "12px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillStyle = pct > 0 ? "#c7352f" : pct < 0 ? "#12805c" : "#162033";
+      const endLabel = view.end >= allRows.length ? "最新" : "区间末";
+      ctx.fillText(`${endLabel} ${Math.round(Number(last.close)).toLocaleString("zh-CN")}  ${Number.isFinite(pct) ? `${pct >= 0 ? "+" : ""}${fmt(pct)}%` : "--"}`, left, 15);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#687386";
+      ctx.fillText(`${view.start + 1}-${view.end}/${allRows.length}`, left + chartWidth, 15);
+    }
+
+    async function loadConfig() {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const data = await res.json();
+      $("configText").value = JSON.stringify(data, null, 2);
+      $("configPanel").classList.remove("hidden");
+    }
+
+    async function saveConfig() {
+      const payload = JSON.parse($("configText").value);
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "保存失败");
+      $("configPanel").classList.add("hidden");
+      await refresh();
+    }
+
+    function schedule() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        if (autoRefresh) refresh();
+      }, 15000);
+    }
+
+    $("refreshBtn").addEventListener("click", refresh);
+    $("savePlanBtn").addEventListener("click", async () => {
+      try { await saveCurrentPlan(); } catch (err) { alert(err.message); }
+    });
+    $("addTradeBtn").addEventListener("click", async () => {
+      try { await addTrade(); } catch (err) { alert(err.message); }
+    });
+    $("enableAlertBtn").addEventListener("click", enableAlerts);
+    $("soundBtn").addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem("stockAlertSound", soundEnabled ? "on" : "off");
+      if (soundEnabled) {
+        ensureAudio();
+        playAlertSound("watch");
+      }
+      updateAlertButtons();
+    });
+    $("financeBtn").addEventListener("click", loadFinance);
+    $("reloadChartBtn").addEventListener("click", loadChart);
+    $("reloadLithiumChartBtn").addEventListener("click", loadLithiumChart);
+    $("zoomInBtn").addEventListener("click", () => zoomChart(0.75, 0.5));
+    $("zoomOutBtn").addEventListener("click", () => zoomChart(1.35, 0.5));
+    $("resetZoomBtn").addEventListener("click", resetChartZoom);
+    $("lithiumZoomInBtn").addEventListener("click", () => zoomLithiumChart(0.75, 1));
+    $("lithiumZoomOutBtn").addEventListener("click", () => zoomLithiumChart(1.35, 1));
+    $("lithiumResetZoomBtn").addEventListener("click", resetLithiumChartZoom);
+    $("priceChart").addEventListener("wheel", event => {
+      if (!chartData || chartData.type === "intraday") return;
+      event.preventDefault();
+      zoomChart(event.deltaY < 0 ? 0.82 : 1.22, chartAnchorRatio(event));
+    }, { passive: false });
+    $("priceChart").addEventListener("pointerdown", startChartDrag);
+    $("lithiumChart").addEventListener("wheel", event => {
+      if (!lithiumChartData) return;
+      event.preventDefault();
+      zoomLithiumChart(event.deltaY < 0 ? 0.82 : 1.22, lithiumChartAnchorRatio(event));
+    }, { passive: false });
+    $("lithiumChart").addEventListener("pointerdown", startLithiumChartDrag);
+    window.addEventListener("pointermove", moveChartDrag);
+    window.addEventListener("pointermove", moveLithiumChartDrag);
+    window.addEventListener("pointerup", endChartDrag);
+    window.addEventListener("pointerup", endLithiumChartDrag);
+    window.addEventListener("pointercancel", endChartDrag);
+    window.addEventListener("pointercancel", endLithiumChartDrag);
+    $("priceChart").addEventListener("dblclick", resetChartZoom);
+    $("lithiumChart").addEventListener("dblclick", resetLithiumChartZoom);
+    document.querySelectorAll("[data-chart-type]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        chartType = btn.dataset.chartType;
+        document.querySelectorAll("[data-chart-type]").forEach(b => b.classList.toggle("active", b === btn));
+        loadChart();
+      });
+    });
+    document.querySelectorAll("[data-lithium-chart-type]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        lithiumChartType = btn.dataset.lithiumChartType;
+        document.querySelectorAll("[data-lithium-chart-type]").forEach(b => b.classList.toggle("active", b === btn));
+        loadLithiumChart();
+      });
+    });
+    window.addEventListener("resize", () => {
+      if (chartData) drawChart(chartData);
+      if (lithiumChartData) drawLithiumChart(lithiumChartData);
+    });
+    $("configBtn").addEventListener("click", loadConfig);
+    $("cancelConfigBtn").addEventListener("click", () => $("configPanel").classList.add("hidden"));
+    $("saveConfigBtn").addEventListener("click", async () => {
+      try { await saveConfig(); } catch (err) { alert(err.message); }
+    });
+    $("toggleAutoBtn").addEventListener("click", () => {
+      autoRefresh = !autoRefresh;
+      $("toggleAutoBtn").textContent = autoRefresh ? "暂停自动刷新" : "恢复自动刷新";
+    });
+
+    updateAlertButtons();
+    loadJournal().catch(err => {
+      $("disciplineDecision").textContent = `交易纪律加载失败：${err.message}`;
+    });
+    refresh();
+    schedule();
+  </script>
+</body>
+</html>

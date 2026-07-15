@@ -1,0 +1,149 @@
+{
+  "refresh_seconds": 5,
+  "account": {
+    "source": "用户券商截图",
+    "snapshot_time": "2026-07-14 14:41",
+    "total_assets": 19502.73,
+    "day_pnl": 395.1,
+    "holding_pnl": -640.38,
+    "market_value": 10106.0,
+    "available_cash": 9396.73,
+    "withdrawable_cash": 0.63,
+    "position_ratio": 51.82
+  },
+  "stocks": [
+    {
+      "code": "002466",
+      "name": "天齐锂业",
+      "holding_qty": 100,
+      "holding_cost": 54.006,
+      "snapshot_price": 47.21,
+      "trigger_below": 48,
+      "strong_below": 46,
+      "category": "高波动周期",
+      "thesis": "锂周期观察仓，核心变量是碳酸锂价格和公司利润修复。",
+      "review_points": [
+        "碳酸锂连续合约是否跌破150000元/吨",
+        "碳酸锂价格能否重新站回155000-160000元/吨",
+        "季度净利润是否随锂价同步修复",
+        "资产减值、投资收益和现金流质量"
+      ]
+    },
+    {
+      "code": "600585",
+      "name": "海螺水泥",
+      "holding_qty": 100,
+      "holding_cost": 16.68,
+      "snapshot_price": 16.81,
+      "trigger_below": 16,
+      "strong_below": 15,
+      "category": "低估值防守周期",
+      "thesis": "低PB、低负债的水泥龙头，买点逻辑是低谷生存能力，不是房地产重回高景气。",
+      "review_points": [
+        "水泥价格和出货量是否改善",
+        "半年报收入、利润、经营现金流是否继续下滑",
+        "ROE是否长期低迷导致低PB陷阱",
+        "分红可持续性和资产负债率"
+      ]
+    },
+    {
+      "code": "600036",
+      "name": "招商银行",
+      "holding_qty": 100,
+      "holding_cost": 36.777,
+      "snapshot_price": 37.04,
+      "trigger_below": 36,
+      "strong_below": 35,
+      "post_dividend_from": "2026-07-10",
+      "post_dividend_trigger_below": 35,
+      "category": "银行核心防守",
+      "thesis": "低估值、高分红、资产质量同业优秀，但成长慢，核心看息差和资产质量。",
+      "review_points": [
+        "净息差是否继续下行",
+        "不良率、关注贷款、逾期贷款变化",
+        "拨备覆盖率和分红可持续性",
+        "零售贷款、信用卡风险和财富管理修复"
+      ]
+    },
+    {
+      "code": "300750",
+      "name": "宁德时代",
+      "holding_qty": 0,
+      "holding_cost": null,
+      "trigger_below": 360,
+      "strong_below": 350,
+      "category": "成长核心",
+      "thesis": "动力电池和储能龙头，价格进入复核区间后重点看增长质量和现金流。",
+      "review_points": [
+        "2026Q2/Q3利润增速",
+        "毛利率和经营现金流",
+        "储能与海外业务增长",
+        "估值是否已经反映乐观预期"
+      ]
+    },
+    {
+      "code": "601899",
+      "name": "紫金矿业",
+      "holding_qty": 0,
+      "holding_cost": null,
+      "trigger_below": 26,
+      "strong_below": 25,
+      "category": "资源周期",
+      "thesis": "金铜资源龙头，股价受金价、铜价、产量和成本共同驱动。",
+      "review_points": [
+        "黄金和铜价走势",
+        "公司产量、成本和资本开支",
+        "资源国政策与汇率风险",
+        "估值是否已计入高景气"
+      ]
+    },
+    {
+      "code": "300770",
+      "name": "新媒股份",
+      "holding_qty": 0,
+      "holding_cost": null,
+      "trigger_below": 29,
+      "strong_below": null,
+      "category": "越秀观察",
+      "thesis": "IPTV/OTT相关公司，进入低价区后需要复核经营数据和应收账款。",
+      "review_points": [
+        "2026年经营数据",
+        "半年报收入和利润趋势",
+        "应收账款变化",
+        "现金流和分红能力"
+      ]
+    },
+    {
+      "code": "601900",
+      "name": "南方传媒",
+      "holding_qty": 0,
+      "holding_cost": null,
+      "trigger_below": 10.3,
+      "strong_below": null,
+      "category": "越秀防守收息",
+      "thesis": "出版发行防守收息股，进入低价区后结合内部统计口径和股息率复核。",
+      "review_points": [
+        "广东新华发行集团收入和现金流",
+        "教育出版、印刷和物资供应链趋势",
+        "合并报表利润和现金流",
+        "股息率和分红可持续性"
+      ]
+    },
+    {
+      "code": "601238",
+      "name": "广汽集团",
+      "holding_qty": 0,
+      "holding_cost": null,
+      "trigger_below": 5,
+      "strong_below": 4.8,
+      "category": "困境反转观察",
+      "thesis": "汽车困境反转观察，不因低价直接买，重点等半年报验证。",
+      "review_points": [
+        "2026年半年报是否披露",
+        "亏损是否大幅收窄或转盈",
+        "毛利率、自主品牌和出口质量",
+        "经营现金流是否改善"
+      ]
+    }
+  ]
+}
