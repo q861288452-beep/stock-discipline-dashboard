@@ -6,6 +6,7 @@
   const JOURNAL_KEY = "stock-discipline-public-journal-v1";
   const adapterBase = new URL("./", document.currentScript.src);
   const cache = new Map();
+  let lastQuotes = null;
 
   const defaultsPromise = Promise.all([
     nativeFetch(new URL("defaults/watchlist.json", adapterBase)).then((response) => response.json()),
@@ -127,92 +128,142 @@
 
   async function fetchQuotes(stocks) {
     return cached("quotes", 4000, async () => {
-      const url = new URL("https://push2.eastmoney.com/api/qt/ulist.np/get");
-      url.searchParams.set("secids", stocks.map((stock) => secid(String(stock.code))).join(","));
-      url.searchParams.set("fields", "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f124");
-      const payload = await jsonp(url.toString());
-      const rows = payload && payload.data && Array.isArray(payload.data.diff) ? payload.data.diff : [];
-      const result = new Map();
-      for (const row of rows) {
-        const code = String(row.f12 || "");
-        const stock = stocks.find((item) => String(item.code) === code) || {};
-        let price = scaledPrice(row.f2);
-        const previous = scaledPrice(row.f18);
-        let fallback = false;
-        let note = null;
-        if (price === null && previous !== null) {
-          price = previous;
-          fallback = true;
-          note = "行情源暂未返回有效现价，当前按昨收参考，不触发提醒。";
+      try {
+        const url = new URL("https://push2.eastmoney.com/api/qt/ulist.np/get");
+        url.searchParams.set("secids", stocks.map((stock) => secid(String(stock.code))).join(","));
+        url.searchParams.set("fields", "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f124");
+        const payload = await jsonp(url.toString());
+        const rows = payload && payload.data && Array.isArray(payload.data.diff) ? payload.data.diff : [];
+        const result = new Map();
+        for (const row of rows) {
+          const code = String(row.f12 || "");
+          const stock = stocks.find((item) => String(item.code) === code) || {};
+          let price = scaledPrice(row.f2);
+          const previous = scaledPrice(row.f18);
+          let fallback = false;
+          let note = null;
+          if (price === null && previous !== null) {
+            price = previous;
+            fallback = true;
+            note = "行情源暂未返回有效现价，当前按昨收参考，不触发提醒。";
+          }
+          const epoch = number(row.f124);
+          result.set(code, {
+            code,
+            name: stock.name || row.f14 || code,
+            price,
+            prev_close: previous,
+            open_price: scaledPrice(row.f17),
+            high: scaledPrice(row.f15),
+            low: scaledPrice(row.f16),
+            volume: number(row.f5),
+            amount: number(row.f6),
+            quote_time: epoch ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", dateStyle: "short", timeStyle: "medium", hour12: false }).format(new Date(epoch * 1000)) : null,
+            source: fallback ? "东方财富昨收参考" : "东方财富实时行情",
+            fallback,
+            error: note,
+          });
         }
-        const epoch = number(row.f124);
-        result.set(code, {
-          code,
-          name: stock.name || row.f14 || code,
-          price,
-          prev_close: previous,
-          open_price: scaledPrice(row.f17),
-          high: scaledPrice(row.f15),
-          low: scaledPrice(row.f16),
-          volume: number(row.f5),
-          amount: number(row.f6),
-          quote_time: epoch ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", dateStyle: "short", timeStyle: "medium", hour12: false }).format(new Date(epoch * 1000)) : null,
-          source: fallback ? "东方财富昨收参考" : "东方财富实时行情",
-          fallback,
-          error: note,
-        });
+        for (const stock of stocks) {
+          const code = String(stock.code);
+          if (result.has(code)) continue;
+          const snapshot = positive(stock.snapshot_price);
+          result.set(code, {
+            code,
+            name: stock.name || code,
+            price: snapshot,
+            prev_close: snapshot,
+            open_price: snapshot,
+            high: snapshot,
+            low: snapshot,
+            volume: null,
+            amount: null,
+            quote_time: null,
+            source: "最近持仓快照",
+            fallback: true,
+            error: "实时行情暂不可用",
+          });
+        }
+        lastQuotes = result;
+        return result;
+      } catch (error) {
+        const result = new Map();
+        for (const stock of stocks) {
+          const code = String(stock.code);
+          const previous = lastQuotes && lastQuotes.get(code);
+          const snapshot = positive(stock.snapshot_price);
+          result.set(code, previous ? {
+            ...previous,
+            fallback: true,
+            source: `${previous.source}（最近成功）`,
+            error: `实时刷新失败：${error.message}`,
+          } : {
+            code,
+            name: stock.name || code,
+            price: snapshot,
+            prev_close: snapshot,
+            open_price: snapshot,
+            high: snapshot,
+            low: snapshot,
+            volume: null,
+            amount: null,
+            quote_time: null,
+            source: "最近持仓快照",
+            fallback: true,
+            error: `实时行情暂不可用：${error.message}`,
+          });
+        }
+        return result;
       }
-      for (const stock of stocks) {
-        const code = String(stock.code);
-        if (result.has(code)) continue;
-        const snapshot = positive(stock.snapshot_price);
-        result.set(code, {
-          code,
-          name: stock.name || code,
-          price: snapshot,
-          prev_close: snapshot,
-          open_price: snapshot,
-          high: snapshot,
-          low: snapshot,
-          volume: null,
-          amount: null,
-          quote_time: null,
-          source: "最近持仓快照",
-          fallback: true,
-          error: "实时行情暂不可用",
-        });
-      }
-      return result;
     });
   }
 
   async function fetchLithium() {
     return cached("lithium", 5000, async () => {
-      try {
-        const raw = await scriptVariable("https://hq.sinajs.cn/list=nf_LC0", "hq_str_nf_LC0");
-        const fields = String(raw || "").split(",");
-        const price = positive(fields[8]);
-        const previous = positive(fields[10]);
-        if (price === null) throw new Error("碳酸锂行情为空");
-        return {
-          code: "LC0",
-          name: "碳酸锂连续",
-          price,
-          change_pct: pct(price, previous),
-          open: positive(fields[2]),
-          high: positive(fields[3]),
-          low: positive(fields[4]),
-          prev_close: previous,
-          volume: number(fields[13]),
-          hold: number(fields[14]),
-          date: fields[17],
-          time: `${fields[17] || ""} ${String(fields[1] || "").replace(/^(\d{2})(\d{2})(\d{2})$/, "$1:$2:$3")}`.trim(),
-          source: "新浪财经/广期所行情",
-          error: null,
-        };
-      } catch (error) {
-        return { code: "LC0", name: "碳酸锂连续", price: null, change_pct: null, source: "新浪财经/广期所行情", error: error.message };
+      const [minuteResult, dailyResult] = await Promise.allSettled([
+        lithiumChart("minute1"),
+        lithiumChart("daily"),
+      ]);
+      const minuteRows = minuteResult.status === "fulfilled" ? minuteResult.value.rows : [];
+      const dailyRows = dailyResult.status === "fulfilled" ? dailyResult.value.rows : [];
+      const latestMinute = minuteRows.length ? minuteRows[minuteRows.length - 1] : null;
+      const latestDaily = dailyRows.length ? dailyRows[dailyRows.length - 1] : null;
+      const current = latestMinute || latestDaily;
+      if (!current) {
+        const errors = [minuteResult, dailyResult]
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason && result.reason.message)
+          .filter(Boolean);
+        return { code: "LC0", name: "碳酸锂连续", price: null, change_pct: null, source: "新浪期货行情", error: errors.join("；") || "碳酸锂行情为空" };
       }
+      const currentDate = String(current.date || "").slice(0, 10);
+      const sameDayMinutes = minuteRows.filter((row) => String(row.date || "").slice(0, 10) === currentDate);
+      let previous = null;
+      if (dailyRows.length) {
+        const lastDailyDate = String(latestDaily.date || "").slice(0, 10);
+        previous = lastDailyDate === currentDate && dailyRows.length > 1
+          ? dailyRows[dailyRows.length - 2].close
+          : latestDaily.close;
+      }
+      const open = sameDayMinutes.length ? sameDayMinutes[0].open : latestDaily && latestDaily.open;
+      const high = sameDayMinutes.length ? Math.max(...sameDayMinutes.map((row) => row.high)) : latestDaily && latestDaily.high;
+      const low = sameDayMinutes.length ? Math.min(...sameDayMinutes.map((row) => row.low)) : latestDaily && latestDaily.low;
+      return {
+        code: "LC0",
+        name: "碳酸锂连续",
+        price: current.close,
+        change_pct: pct(current.close, previous),
+        open,
+        high,
+        low,
+        prev_close: previous,
+        volume: sameDayMinutes.reduce((sum, row) => sum + (number(row.volume) || 0), 0) || number(current.volume),
+        hold: number(current.hold),
+        date: currentDate,
+        time: String(current.date || ""),
+        source: latestMinute ? "新浪期货1分钟行情" : "新浪期货日K行情",
+        error: null,
+      };
     });
   }
 
