@@ -557,7 +557,7 @@
         <div class="value" id="marketValue">--</div>
       </div>
       <div class="metric">
-        <div class="label">可用资金</div>
+        <div class="label">未投入资金</div>
         <div class="value" id="availableCash">--</div>
       </div>
       <div class="metric">
@@ -695,8 +695,8 @@
                 <thead>
                   <tr>
                     <th>分类</th>
-                    <th>当前账户</th>
-                    <th>20万口径</th>
+                    <th>券商账户</th>
+                    <th>20万总资金</th>
                     <th>上限</th>
                     <th>纪律</th>
                   </tr>
@@ -715,7 +715,7 @@
             </div>
             <div class="limit-grid">
               <div class="field">
-                <label>当前账户单票上限 %</label>
+                <label>券商账户单票上限 %</label>
                 <input id="planMaxAccountPct" type="number" step="0.1" />
               </div>
               <div class="field">
@@ -833,7 +833,7 @@
   </main>
   <div class="toast-stack" id="toastStack"></div>
 
-  <script src="./public-adapter.js?v=20260715-4"></script>
+  <script src="./public-adapter.js?v=20260715-5"></script>
   <script>
     let snapshot = null;
     let selectedCode = /^\d{6}$/.test(location.hash.slice(1)) ? location.hash.slice(1) : null;
@@ -1062,13 +1062,13 @@
     function renderDisciplineDecision(stock, plan) {
       const rv = stock.review || {};
       const positionValue = stock.market_value || 0;
-      const accountValue = snapshot?.account?.total_assets || 0;
+      const accountValue = snapshot?.account?.broker_total_assets || snapshot?.account?.total_assets || 0;
       const declaredCapital = declaredTotalCapital();
       const singleWeight = accountValue ? positionValue / accountValue * 100 : null;
       const totalCapitalWeight = declaredCapital ? positionValue / declaredCapital * 100 : null;
       const accountLimit = Number(plan.max_account_pct ?? getCategoryLimit(stock.category).max_account_pct ?? NaN);
       const totalLimit = Number(plan.max_total_capital_pct ?? getCategoryLimit(stock.category).max_total_capital_pct ?? NaN);
-      const accountPosition = snapshot?.account?.position_ratio;
+      const accountPosition = snapshot?.account?.broker_position_ratio ?? snapshot?.account?.position_ratio;
       const dayLossPct = pctOf(Math.abs(Math.min(snapshot?.account?.day_pnl || 0, 0)), accountValue);
       const accountOver = Number.isFinite(accountLimit) && singleWeight !== null && singleWeight > accountLimit;
       const totalOver = Number.isFinite(totalLimit) && totalCapitalWeight !== null && totalCapitalWeight > totalLimit;
@@ -1079,11 +1079,11 @@
       else if (accountCrowded && !["银行核心防守"].includes(stock.category)) action = "暂停新增";
       const messages = [];
       messages.push(`<span class="pill">${plan.role || stock.category || "观察仓"}</span>`);
-      messages.push(`当前价格 ${fmt(stock.price)}，持仓 ${stock.holding_qty || 0} 股，当前账户单票仓位 ${singleWeight === null ? "--" : fmt(singleWeight)}%，20万总资金口径 ${totalCapitalWeight === null ? "--" : fmt(totalCapitalWeight)}%。`);
-      if (accountOver) messages.push(`当前账户口径已超单票上限：${fmt(singleWeight)}% > ${fmt(accountLimit)}%，原则上只减不加。`);
+      messages.push(`当前价格 ${fmt(stock.price)}，持仓 ${stock.holding_qty || 0} 股，券商账户单票仓位 ${singleWeight === null ? "--" : fmt(singleWeight)}%，20万总资金口径 ${totalCapitalWeight === null ? "--" : fmt(totalCapitalWeight)}%。`);
+      if (accountOver) messages.push(`券商账户口径已超单票上限：${fmt(singleWeight)}% > ${fmt(accountLimit)}%，原则上只减不加。`);
       if (totalOver) messages.push(`20万总资金口径已超单票上限：${fmt(totalCapitalWeight)}% > ${fmt(totalLimit)}%，禁止继续加仓。`);
-      if (accountCrowded) messages.push(`当前实盘账户总仓位 ${fmt(accountPosition)}%，已高于60%纪律线，非核心仓暂停新增。`);
-      if (lossStop) messages.push(`今日亏损约 ${fmt(dayLossPct)}% 当前账户资金，触发日内风控，停止新增高波动仓。`);
+      if (accountCrowded) messages.push(`券商账户总仓位 ${fmt(accountPosition)}%，已高于60%纪律线，非核心仓暂停新增。`);
+      if (lossStop) messages.push(`今日亏损约 ${fmt(dayLossPct)}% 券商账户资金，触发日内风控，停止新增高波动仓。`);
       if (rv.level === "normal") {
         messages.push("未触发价格复核线，默认动作是观察，不主动加仓。");
       } else {
@@ -1102,7 +1102,7 @@
         <div class="kv">
           <span>建议动作</span><strong class="${action === "禁止加仓" ? "danger-text" : ""}">${action}</strong>
           <span>仓位纪律</span><strong>${plan.position_rule || "--"}</strong>
-          <span>当前账户上限</span><strong>${Number.isFinite(accountLimit) ? `${fmt(accountLimit)}%` : "--"}</strong>
+          <span>券商账户上限</span><strong>${Number.isFinite(accountLimit) ? `${fmt(accountLimit)}%` : "--"}</strong>
           <span>20万口径上限</span><strong>${Number.isFinite(totalLimit) ? `${fmt(totalLimit)}%` : "--"}</strong>
         </div>
         <ul>${messages.map(m => `<li>${m}</li>`).join("")}</ul>
@@ -1114,12 +1114,14 @@
       const rules = portfolioRules();
       const account = snapshot.account || {};
       const declaredCapital = declaredTotalCapital();
-      const accountPosition = account.position_ratio;
-      const dayLossPct = pctOf(Math.abs(Math.min(account.day_pnl || 0, 0)), account.total_assets);
+      const totalPosition = account.position_ratio;
+      const brokerAssets = account.broker_total_assets || account.total_assets;
+      const brokerPosition = account.broker_position_ratio ?? account.position_ratio;
+      const dayLossPct = pctOf(Math.abs(Math.min(account.day_pnl || 0, 0)), brokerAssets);
       const summaryItems = [];
-      summaryItems.push(`当前账户总资产 ${money(account.total_assets)}，仓位 ${fmt(accountPosition)}%，可用资金 ${money(account.available_cash)}。`);
-      if (declaredCapital) summaryItems.push(`总资金纪律口径 ${money(declaredCapital)}，当前持仓占总资金 ${fmt(pctOf(account.market_value, declaredCapital))}%。`);
-      if (accountPosition > 60) summaryItems.push(`<span class="danger-text">当前账户仓位已超过60%，非核心仓暂停新增。</span>`);
+      summaryItems.push(`20万总资金口径：总资产 ${money(account.total_assets)}，持仓占比 ${fmt(totalPosition)}%，未投入资金 ${money(account.available_cash)}。`);
+      summaryItems.push(`券商账户快照：总资产 ${money(account.broker_total_assets)}，仓位 ${fmt(brokerPosition)}%，可用资金 ${money(account.broker_available_cash)}。`);
+      if (brokerPosition > 60) summaryItems.push(`<span class="danger-text">券商账户仓位已超过60%，非核心仓暂停新增。</span>`);
       if (dayLossPct > 1.5) summaryItems.push(`<span class="danger-text">今日亏损 ${fmt(dayLossPct)}%，触发日内风控，停止新增高波动仓。</span>`);
       summaryItems.push(rules.cash_rule || "未设置现金规则。");
       summaryItems.push(rules.add_rule || "未设置加仓规则。");
@@ -1138,7 +1140,7 @@
       });
       const rows = [...byCategory.entries()].map(([category, value]) => {
         const limit = getCategoryLimit(category);
-        const accountPct = pctOf(value, account.total_assets);
+        const accountPct = pctOf(value, brokerAssets);
         const totalPct = pctOf(value, declaredCapital);
         const cls = riskClass(accountPct, limit.max_account_pct) || riskClass(totalPct, limit.max_total_capital_pct);
         return `
@@ -1146,7 +1148,7 @@
             <td><strong>${category}</strong></td>
             <td>${fmt(accountPct)}%</td>
             <td>${fmt(totalPct)}%</td>
-            <td>账户 ${fmt(limit.max_account_pct)}% / 总资金 ${fmt(limit.max_total_capital_pct)}%</td>
+            <td>券商 ${fmt(limit.max_account_pct)}% / 总资金 ${fmt(limit.max_total_capital_pct)}%</td>
             <td>${limit.action || "--"}</td>
           </tr>
         `;

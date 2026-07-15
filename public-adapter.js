@@ -94,6 +94,11 @@
       if (!stored) return clone(defaults[defaultKey]);
       const parsed = JSON.parse(stored);
       const defaultValue = defaults[defaultKey];
+      if (defaultKey === "config") {
+        const storedRevision = number(parsed?.state_revision) || 0;
+        const defaultRevision = number(defaultValue?.state_revision) || 0;
+        if (defaultRevision > storedRevision) return clone(defaultValue);
+      }
       const storedVersion = defaultKey === "config" ? parsed?.account?.snapshot_time : parsed?.updated_at;
       const defaultVersion = defaultKey === "config" ? defaultValue?.account?.snapshot_time : defaultValue?.updated_at;
       return defaultVersion && (!storedVersion || String(defaultVersion) > String(storedVersion))
@@ -380,8 +385,15 @@
       };
     });
     const accountConfig = config.account || {};
-    const available = number(accountConfig.available_cash);
-    const totalAssets = available !== null ? totalMarketValue + available : number(accountConfig.total_assets);
+    const brokerAvailable = number(accountConfig.available_cash);
+    const brokerAssets = number(accountConfig.total_assets);
+    const portfolioCapital = number(accountConfig.portfolio_total_capital);
+    const totalAssets = portfolioCapital !== null
+      ? portfolioCapital
+      : brokerAvailable !== null
+        ? totalMarketValue + brokerAvailable
+        : brokerAssets;
+    const available = totalAssets !== null ? Math.max(0, totalAssets - totalMarketValue) : brokerAvailable;
     return {
       as_of: nowText(),
       refresh_seconds: Math.max(5, number(config.refresh_seconds) || 15),
@@ -389,7 +401,7 @@
         source: "公开移动版/浏览器本地配置",
         snapshot_time: accountConfig.snapshot_time,
         total_assets: totalAssets,
-        broker_total_assets: number(accountConfig.total_assets),
+        broker_total_assets: brokerAssets,
         day_pnl: dayComplete ? dayPnl : number(accountConfig.day_pnl),
         broker_day_pnl: number(accountConfig.day_pnl),
         day_pnl_method: dayComplete ? "previous_close_estimate" : "broker_snapshot",
@@ -398,6 +410,7 @@
         market_value: totalMarketValue,
         broker_market_value: number(accountConfig.market_value),
         available_cash: available,
+        broker_available_cash: brokerAvailable,
         withdrawable_cash: number(accountConfig.withdrawable_cash),
         position_ratio: totalAssets ? totalMarketValue / totalAssets * 100 : number(accountConfig.position_ratio),
         broker_position_ratio: number(accountConfig.position_ratio),

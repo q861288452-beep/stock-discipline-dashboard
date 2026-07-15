@@ -1,8 +1,10 @@
 {
+  "state_revision": 2,
   "refresh_seconds": 5,
   "account": {
     "source": "用户券商截图",
     "snapshot_time": "2026-07-15 14:12",
+    "portfolio_total_capital": 200000,
     "total_assets": 19714.74,
     "day_pnl": 177.91,
     "holding_pnl": -428.37,
