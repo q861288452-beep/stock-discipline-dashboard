@@ -9,8 +9,8 @@
   let lastQuotes = null;
 
   const defaultsPromise = Promise.all([
-    nativeFetch(new URL("defaults/watchlist.json", adapterBase)).then((response) => response.json()),
-    nativeFetch(new URL("defaults/journal.json", adapterBase)).then((response) => response.json()),
+    nativeFetch(new URL("defaults/watchlist.json", adapterBase), { cache: "no-store" }).then((response) => response.json()),
+    nativeFetch(new URL("defaults/journal.json", adapterBase), { cache: "no-store" }).then((response) => response.json()),
   ]).then(([config, journal]) => ({ config, journal }));
 
   function clone(value) {
@@ -38,7 +38,7 @@
   }
 
   function market(code) {
-    return /^(60|68|90)/.test(code) ? 1 : 0;
+    return /^(5|60|68|90)/.test(code) ? 1 : 0;
   }
 
   function secid(code) {
@@ -91,7 +91,14 @@
     const defaults = await defaultsPromise;
     try {
       const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : clone(defaults[defaultKey]);
+      if (!stored) return clone(defaults[defaultKey]);
+      const parsed = JSON.parse(stored);
+      const defaultValue = defaults[defaultKey];
+      const storedVersion = defaultKey === "config" ? parsed?.account?.snapshot_time : parsed?.updated_at;
+      const defaultVersion = defaultKey === "config" ? defaultValue?.account?.snapshot_time : defaultValue?.updated_at;
+      return defaultVersion && (!storedVersion || String(defaultVersion) > String(storedVersion))
+        ? clone(defaultValue)
+        : parsed;
     } catch {
       return clone(defaults[defaultKey]);
     }

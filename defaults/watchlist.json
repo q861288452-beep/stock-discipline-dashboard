@@ -2,22 +2,22 @@
   "refresh_seconds": 5,
   "account": {
     "source": "用户券商截图",
-    "snapshot_time": "2026-07-14 14:41",
-    "total_assets": 19502.73,
-    "day_pnl": 395.1,
-    "holding_pnl": -640.38,
-    "market_value": 10106.0,
-    "available_cash": 9396.73,
-    "withdrawable_cash": 0.63,
-    "position_ratio": 51.82
+    "snapshot_time": "2026-07-15 14:12",
+    "total_assets": 19714.74,
+    "day_pnl": 177.91,
+    "holding_pnl": -428.37,
+    "market_value": 10826.3,
+    "available_cash": 8888.44,
+    "withdrawable_cash": 8888.44,
+    "position_ratio": 54.91
   },
   "stocks": [
     {
       "code": "002466",
       "name": "天齐锂业",
       "holding_qty": 100,
-      "holding_cost": 54.006,
-      "snapshot_price": 47.21,
+      "holding_cost": 53.831,
+      "snapshot_price": 47.65,
       "trigger_below": 48,
       "strong_below": 46,
       "category": "高波动周期",
@@ -34,7 +34,7 @@
       "name": "海螺水泥",
       "holding_qty": 100,
       "holding_cost": 16.68,
-      "snapshot_price": 16.81,
+      "snapshot_price": 17.57,
       "trigger_below": 16,
       "strong_below": 15,
       "category": "低估值防守周期",
@@ -51,7 +51,7 @@
       "name": "招商银行",
       "holding_qty": 100,
       "holding_cost": 36.777,
-      "snapshot_price": 37.04,
+      "snapshot_price": 37.8,
       "trigger_below": 36,
       "strong_below": 35,
       "post_dividend_from": "2026-07-10",
@@ -63,6 +63,23 @@
         "不良率、关注贷款、逾期贷款变化",
         "拨备覆盖率和分红可持续性",
         "零售贷款、信用卡风险和财富管理修复"
+      ]
+    },
+    {
+      "code": "512670",
+      "name": "国防ETF鹏华",
+      "holding_qty": 700,
+      "holding_cost": 0.751,
+      "snapshot_price": 0.749,
+      "trigger_below": null,
+      "strong_below": null,
+      "category": "主题ETF观察",
+      "thesis": "国防军工主题ETF观察仓，收益取决于板块景气、订单预期和市场风险偏好，不按单一个股逻辑加仓。",
+      "review_points": [
+        "军工板块上涨是否有订单和业绩支撑",
+        "ETF成交额、折溢价和跟踪误差",
+        "主题仓位是否挤占核心资产配置",
+        "买入理由失效时是否按纪律退出"
       ]
     },
     {
