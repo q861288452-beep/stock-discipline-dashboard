@@ -49,6 +49,16 @@
     return `${market(code) ? "SH" : "SZ"}${code}`;
   }
 
+  function tencentSymbol(code) {
+    return `${market(code) ? "sh" : "sz"}${code}`;
+  }
+
+  function compactTime(value) {
+    const raw = String(value || "");
+    if (!/^\d{14}$/.test(raw)) return null;
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)} ${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}`;
+  }
+
   function nowText() {
     return new Intl.DateTimeFormat("sv-SE", {
       timeZone: "Asia/Shanghai",
@@ -129,17 +139,21 @@
   async function fetchQuotes(stocks) {
     return cached("quotes", 4000, async () => {
       try {
-        const url = new URL("https://push2.eastmoney.com/api/qt/ulist.np/get");
-        url.searchParams.set("secids", stocks.map((stock) => secid(String(stock.code))).join(","));
-        url.searchParams.set("fields", "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f124");
-        const payload = await jsonp(url.toString());
-        const rows = payload && payload.data && Array.isArray(payload.data.diff) ? payload.data.diff : [];
+        const symbols = stocks.map((stock) => tencentSymbol(String(stock.code)));
+        const response = await nativeFetch(`https://qt.gtimg.cn/q=${symbols.join(",")}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`腾讯行情返回 ${response.status}`);
+        const text = new TextDecoder("gbk").decode(await response.arrayBuffer());
+        const rows = new Map();
+        for (const match of text.matchAll(/v_([a-z]{2}\d{6})="([^"]*)"/g)) {
+          rows.set(match[1], match[2].split("~"));
+        }
         const result = new Map();
-        for (const row of rows) {
-          const code = String(row.f12 || "");
-          const stock = stocks.find((item) => String(item.code) === code) || {};
-          let price = scaledPrice(row.f2);
-          const previous = scaledPrice(row.f18);
+        for (const stock of stocks) {
+          const code = String(stock.code);
+          const fields = rows.get(tencentSymbol(code));
+          if (!fields) continue;
+          let price = positive(fields[3]);
+          const previous = positive(fields[4]);
           let fallback = false;
           let note = null;
           if (price === null && previous !== null) {
@@ -147,19 +161,18 @@
             fallback = true;
             note = "行情源暂未返回有效现价，当前按昨收参考，不触发提醒。";
           }
-          const epoch = number(row.f124);
           result.set(code, {
             code,
-            name: stock.name || row.f14 || code,
+            name: stock.name || fields[1] || code,
             price,
             prev_close: previous,
-            open_price: scaledPrice(row.f17),
-            high: scaledPrice(row.f15),
-            low: scaledPrice(row.f16),
-            volume: number(row.f5),
-            amount: number(row.f6),
-            quote_time: epoch ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", dateStyle: "short", timeStyle: "medium", hour12: false }).format(new Date(epoch * 1000)) : null,
-            source: fallback ? "东方财富昨收参考" : "东方财富实时行情",
+            open_price: positive(fields[5]),
+            high: positive(fields[33]),
+            low: positive(fields[34]),
+            volume: number(fields[36]),
+            amount: number(fields[37]) === null ? null : number(fields[37]) * 10000,
+            quote_time: compactTime(fields[30]),
+            source: fallback ? "腾讯证券昨收参考" : "腾讯证券实时行情",
             fallback,
             error: note,
           });
@@ -401,29 +414,66 @@
   async function stockChart(code, requested) {
     const type = ["intraday", "daily", "weekly", "monthly"].includes(requested) ? requested : "daily";
     return cached(`chart:${code}:${type}`, type === "intraday" ? 5000 : 300000, async () => {
+      const symbol = tencentSymbol(code);
       if (type === "intraday") {
-        const url = new URL("https://push2his.eastmoney.com/api/qt/stock/trends2/get");
-        url.searchParams.set("secid", secid(code));
-        url.searchParams.set("fields1", "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13");
-        url.searchParams.set("fields2", "f51,f52,f53,f54,f55,f56,f57,f58");
-        url.searchParams.set("iscr", "0");
-        const payload = await jsonp(url.toString());
-        const data = payload.data || {};
-        return { code, name: data.name, type, source: "东方财富分时行情", pre_close: number(data.preClose), rows: (data.trends || []).map(parseTrend) };
+        const response = await nativeFetch(`https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=${symbol}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`腾讯分时返回 ${response.status}`);
+        const payload = await response.json();
+        const result = payload && payload.data && payload.data[symbol];
+        if (!result || !result.data) throw new Error("腾讯分时行情为空");
+        const date = String(result.data.date || "");
+        let previousVolume = 0;
+        let previousAmount = 0;
+        const rows = (result.data.data || []).map((raw) => {
+          const fields = String(raw).trim().split(/\s+/);
+          const price = number(fields[1]);
+          const cumulativeVolume = number(fields[2]) || previousVolume;
+          const cumulativeAmount = number(fields[3]) || previousAmount;
+          const volume = Math.max(0, cumulativeVolume - previousVolume);
+          const amount = Math.max(0, cumulativeAmount - previousAmount);
+          previousVolume = cumulativeVolume;
+          previousAmount = cumulativeAmount;
+          const clock = String(fields[0] || "").padStart(4, "0");
+          const time = /^\d{8}$/.test(date)
+            ? `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${clock.slice(0, 2)}:${clock.slice(2, 4)}`
+            : clock;
+          return { time, open: price, close: price, high: price, low: price, volume, amount, avg_price: cumulativeVolume ? cumulativeAmount / cumulativeVolume / 100 : price };
+        }).filter((row) => row.close !== null);
+        const quote = result.qt && result.qt[symbol];
+        return { code, name: quote && quote[1], type, source: "腾讯证券分时行情", pre_close: quote ? number(quote[4]) : null, rows };
       }
-      const klt = { daily: "101", weekly: "102", monthly: "103" };
+      const period = { daily: "day", weekly: "week", monthly: "month" }[type];
       const limit = { daily: 240, weekly: 180, monthly: 120 };
-      const url = new URL("https://push2his.eastmoney.com/api/qt/stock/kline/get");
-      url.searchParams.set("secid", secid(code));
-      url.searchParams.set("fields1", "f1,f2,f3,f4,f5,f6");
-      url.searchParams.set("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61");
-      url.searchParams.set("klt", klt[type]);
-      url.searchParams.set("fqt", "1");
-      url.searchParams.set("beg", "20200101");
-      url.searchParams.set("end", "20500101");
-      const payload = await jsonp(url.toString());
-      const data = payload.data || {};
-      return { code, name: data.name, type, source: "东方财富历史K线", rows: (data.klines || []).map(parseKline).slice(-limit[type]) };
+      const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${symbol},${period},,,${limit[type]},qfq`;
+      const response = await nativeFetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`腾讯K线返回 ${response.status}`);
+      const payload = await response.json();
+      const data = payload && payload.data && payload.data[symbol];
+      const rawRows = data && (data[`qfq${period}`] || data[period]);
+      if (!Array.isArray(rawRows)) throw new Error("腾讯K线行情为空");
+      let previous = null;
+      const rows = rawRows.map((fields) => {
+        const close = number(fields[2]);
+        const high = number(fields[3]);
+        const low = number(fields[4]);
+        const change = previous === null || close === null ? null : close - previous;
+        const row = {
+          date: String(fields[0] || ""),
+          open: number(fields[1]),
+          close,
+          high,
+          low,
+          volume: number(fields[5]),
+          amount: null,
+          amplitude: low ? (high - low) / low * 100 : null,
+          pct: previous ? change / previous * 100 : null,
+          change,
+          turnover: null,
+        };
+        previous = close;
+        return row;
+      }).filter((row) => row.close !== null);
+      return { code, name: null, type, source: "腾讯证券前复权K线", rows };
     });
   }
 
