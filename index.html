@@ -350,6 +350,39 @@
       border: 1px solid #fed7aa;
       line-height: 1.5;
     }
+    .research-panel .panel-head > div:first-child { min-width: 0; }
+    .research-panel .panel-head .hint { display: block; margin-top: 4px; }
+    .research-signal {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .research-signal.positive { color: var(--green); background: #eefaf4; border-color: #c6ead8; }
+    .research-signal.mixed_positive { color: var(--blue); background: #eef4ff; border-color: #d6e3ff; }
+    .research-signal.caution { color: var(--orange); background: #fff7ed; border-color: #fed7aa; }
+    .research-signal.negative { color: var(--red); background: #fff1f0; border-color: #ffc9c4; }
+    .research-overview {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+      line-height: 1.6;
+    }
+    .research-overview strong { display: block; margin-bottom: 6px; font-size: 16px; }
+    .research-action { margin-top: 10px; color: var(--text); font-weight: 600; }
+    .research-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .research-block { padding: 14px 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+    .research-block:nth-child(odd) { border-right: 1px solid var(--line); }
+    .research-block h3 { margin: 0 0 8px; font-size: 14px; }
+    .research-block ul { margin-top: 0; line-height: 1.5; }
+    .research-block.wide { grid-column: 1 / -1; border-right: 0; }
+    .research-sources { display: flex; flex-wrap: wrap; gap: 8px 14px; line-height: 1.5; }
+    .research-sources a { color: var(--blue); text-underline-offset: 3px; }
+    .source-kind { color: var(--muted); font-size: 12px; margin-left: 4px; }
     .chart-toolbar {
       display: flex;
       align-items: center;
@@ -506,11 +539,13 @@
       to { transform: translateY(0); opacity: 1; }
     }
     @media (max-width: 1080px) {
-      .grid, .summary, .top, .chart-grid, .discipline-grid, .form-grid, .portfolio-discipline, .limit-grid { grid-template-columns: 1fr; }
+      .grid, .summary, .top, .chart-grid, .discipline-grid, .form-grid, .portfolio-discipline, .limit-grid, .research-grid { grid-template-columns: 1fr; }
       .actions { justify-content: flex-start; }
       .panel.table-panel { overflow-x: auto; }
       .form-grid .wide { grid-column: span 1; }
       table { min-width: 860px; }
+      .research-block, .research-block:nth-child(odd) { border-right: 0; }
+      .research-block.wide { grid-column: auto; }
     }
     @media (max-width: 640px) {
       main { padding-left: 10px; padding-right: 10px; }
@@ -674,6 +709,19 @@
       </aside>
     </section>
 
+    <section class="panel section research-panel" id="researchPanel">
+      <div class="panel-head">
+        <div>
+          <h2 id="researchTitle">消息、政策与经营证据</h2>
+          <span class="hint" id="researchFreshness">按公司公告、政策、行业数据和市场反应交叉复核</span>
+        </div>
+        <span class="research-signal caution" id="researchSignal">等待数据</span>
+      </div>
+      <div id="researchContent">
+        <div class="research-overview">请选择一只股票查看完整证据链。</div>
+      </div>
+    </section>
+
     <section class="panel section" id="disciplinePanel">
       <div class="panel-head">
         <h2>投资纪律台</h2>
@@ -833,7 +881,7 @@
   </main>
   <div class="toast-stack" id="toastStack"></div>
 
-  <script src="./public-adapter.js?v=20260715-5"></script>
+  <script src="./public-adapter.js?v=20260715-6"></script>
   <script>
     let snapshot = null;
     let selectedCode = /^\d{6}$/.test(location.hash.slice(1)) ? location.hash.slice(1) : null;
@@ -859,6 +907,20 @@
     const money = (n) => n === null || n === undefined ? "--" : Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
     const signedMoney = (n) => n === null || n === undefined || Number.isNaN(Number(n)) ? "--" : `${Number(n) > 0 ? "+" : ""}${money(n)}`;
     const pctClass = (n) => n > 0 ? "up" : n < 0 ? "down" : "";
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+    const safeHttpUrl = (value) => {
+      try {
+        const url = new URL(String(value || ""));
+        return ["http:", "https:"].includes(url.protocol) ? url.href : "#";
+      } catch {
+        return "#";
+      }
+    };
     const alertLevels = { normal: 0, pending: 0, unknown: 0, watch: 1, risk: 2, strong: 3 };
     const alertLevelNames = { watch: "进入复核区", risk: "风险提示", strong: "强复核区" };
 
@@ -939,6 +1001,55 @@
       loadChart();
     }
 
+    function renderResearchList(items) {
+      const values = Array.isArray(items) ? items : [];
+      return values.length
+        ? `<ul>${values.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : "<div>暂无已确认信息。</div>";
+    }
+
+    function renderResearch(stock) {
+      const research = stock?.research;
+      if (!research) {
+        $("researchTitle").textContent = `${stock?.name || "当前标的"} 消息、政策与经营证据`;
+        $("researchFreshness").textContent = "尚未建立结构化证据链";
+        $("researchSignal").className = "research-signal caution";
+        $("researchSignal").textContent = "等待数据";
+        $("researchContent").innerHTML = '<div class="research-overview">当前只有价格和基础财务复核，暂不据此形成买入结论。</div>';
+        return;
+      }
+
+      const allowedSignals = ["positive", "mixed_positive", "caution", "negative"];
+      const signal = allowedSignals.includes(research.signal) ? research.signal : "caution";
+      const sources = Array.isArray(research.sources) ? research.sources : [];
+      $("researchTitle").textContent = `${stock.name} 消息、政策与经营证据`;
+      $("researchFreshness").textContent = `证据更新至 ${research.updated_at || "--"}；公告事实、政策方向与市场定价分开判断`;
+      $("researchSignal").className = `research-signal ${signal}`;
+      $("researchSignal").textContent = research.signal_label || "等待数据";
+      $("researchContent").innerHTML = `
+        <div class="research-overview">
+          <strong>${escapeHtml(research.decision?.stance || "观察")}</strong>
+          <div>${escapeHtml(research.headline || "--")}</div>
+          <div class="research-action">操作口径：${escapeHtml(research.decision?.action || "等待更多证据。")}</div>
+        </div>
+        <div class="research-grid">
+          <section class="research-block"><h3>经营证据</h3>${renderResearchList(research.financial_evidence)}</section>
+          <section class="research-block"><h3>已确认催化</h3>${renderResearchList(research.catalysts)}</section>
+          <section class="research-block"><h3>政策与行业</h3>${renderResearchList(research.policy_industry)}</section>
+          <section class="research-block"><h3>利空与证伪</h3>${renderResearchList(research.risks)}</section>
+          <section class="research-block wide"><h3>市场可能已经计价</h3><div>${escapeHtml(research.market_pricing || "--")}</div></section>
+          <section class="research-block"><h3>下一检查节点</h3>${renderResearchList(research.next_checks)}</section>
+          <section class="research-block">
+            <h3>原始来源</h3>
+            <div class="research-sources">${sources.map(source => {
+              const href = escapeHtml(safeHttpUrl(source.url));
+              return `<span><a href="${href}" target="_blank" rel="noreferrer">${escapeHtml(source.title || "来源")}</a><span class="source-kind">${escapeHtml(source.kind || "")} ${escapeHtml(source.date || "")}</span></span>`;
+            }).join("") || "暂无来源链接。"}</div>
+          </section>
+        </div>
+      `;
+    }
+
     function renderDetail() {
       if (!snapshot) return;
       const s = snapshot.stocks.find(x => x.code === selectedCode);
@@ -972,6 +1083,7 @@
       $("financeTitle").textContent = `${s.name} 财报摘要`;
       $("financeLink").href = s.finance_url;
       $("chartTitle").textContent = `${s.name} ${chartTypeLabel(chartType)}`;
+      renderResearch(s);
     }
 
     function linesToText(value) {

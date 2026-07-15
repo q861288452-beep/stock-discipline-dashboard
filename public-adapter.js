@@ -11,7 +11,8 @@
   const defaultsPromise = Promise.all([
     nativeFetch(new URL("defaults/watchlist.json", adapterBase), { cache: "no-store" }).then((response) => response.json()),
     nativeFetch(new URL("defaults/journal.json", adapterBase), { cache: "no-store" }).then((response) => response.json()),
-  ]).then(([config, journal]) => ({ config, journal }));
+    nativeFetch(new URL("defaults/research.json", adapterBase), { cache: "no-store" }).then((response) => response.json()),
+  ]).then(([config, journal, research]) => ({ config, journal, research }));
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -300,10 +301,31 @@
     return { trigger: number(stock.trigger_below), label: null };
   }
 
-  function review(stock, quote, lithium) {
+  function review(stock, quote, lithium, research) {
     const current = effectiveTrigger(stock);
     const strong = number(stock.strong_below);
+    const fundamentalOverride = research && research.review_override;
+    if (quote.fallback && fundamentalOverride && typeof fundamentalOverride === "object") {
+      return {
+        level: String(fundamentalOverride.level || "risk"),
+        title: String(fundamentalOverride.title || "基本面风险"),
+        messages: [String(fundamentalOverride.message || "基本面条件尚未满足。"), quote.error || "备用价格不触发提醒。"],
+        trigger: current.trigger,
+        strong,
+        trigger_label: current.label,
+      };
+    }
     if (quote.fallback) return { level: "pending", title: "行情待确认", messages: [quote.error || "备用价格不触发提醒。"], trigger: current.trigger, strong, trigger_label: current.label };
+    if (quote.price === null && fundamentalOverride && typeof fundamentalOverride === "object") {
+      return {
+        level: String(fundamentalOverride.level || "risk"),
+        title: String(fundamentalOverride.title || "基本面风险"),
+        messages: [String(fundamentalOverride.message || "基本面条件尚未满足。"), quote.error || "没有取得最新行情"],
+        trigger: current.trigger,
+        strong,
+        trigger_label: current.label,
+      };
+    }
     if (quote.price === null) return { level: "unknown", title: "行情异常", messages: [quote.error || "没有取得最新行情"], trigger: current.trigger, strong, trigger_label: current.label };
     let level = "normal";
     const messages = [];
@@ -321,13 +343,25 @@
       } else if (lithium.price < 155000) messages.push("碳酸锂仍在15.5万元下方，先按观察仓处理。");
       else messages.push("碳酸锂高于15.5万元，继续观察能否站稳16万元。");
     }
+    if (Array.isArray(research && research.review_messages)) {
+      messages.push(...research.review_messages.map(String));
+    }
+    let titleOverride = null;
+    const reviewOverride = research && research.review_override;
+    if (reviewOverride && typeof reviewOverride === "object") {
+      if (reviewOverride.level) level = String(reviewOverride.level);
+      if (reviewOverride.title) titleOverride = String(reviewOverride.title);
+      if (reviewOverride.message) messages.unshift(String(reviewOverride.message));
+    }
     if (!messages.length) messages.push("未触发价格复核线，维持观察。");
     const titles = { normal: "正常观察", watch: "进入复核区", strong: "强复核区", risk: "风险提示" };
-    return { level, title: titles[level], messages, trigger: current.trigger, strong, trigger_label: current.label };
+    return { level, title: titleOverride || titles[level] || "正常观察", messages, trigger: current.trigger, strong, trigger_label: current.label };
   }
 
   async function buildSnapshot() {
     const config = await loadStored(CONFIG_KEY, "config");
+    const defaults = await defaultsPromise;
+    const researchStocks = defaults.research && defaults.research.stocks || {};
     const stocks = Array.isArray(config.stocks) ? config.stocks : [];
     const [quotes, lithium] = await Promise.all([fetchQuotes(stocks), fetchLithium()]);
     let totalMarketValue = 0;
@@ -337,6 +371,7 @@
     let dayComplete = true;
     const rows = stocks.map((stock) => {
       const code = String(stock.code);
+      const research = researchStocks[code] || null;
       const quote = quotes.get(code);
       const qty = Math.max(0, Math.trunc(number(stock.holding_qty) || 0));
       const cost = number(stock.holding_cost);
@@ -379,8 +414,9 @@
         market_value: marketValue,
         pnl: holdingPnl,
         pnl_pct: holdingPnlPct,
-        review: review(stock, quote, lithium),
+        review: review(stock, quote, lithium, research),
         review_points: stock.review_points || [],
+        research,
         finance_url: `https://emweb.securities.eastmoney.com/PC_HSF10/FinanceAnalysis/Index?type=web&code=${emCode(code)}`,
       };
     });
